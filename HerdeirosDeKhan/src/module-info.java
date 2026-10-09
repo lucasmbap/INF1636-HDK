@@ -5,4 +5,5 @@
  * 
  */
 module HerdeirosDeKhan {
+	exports Model;
 }

@@ -1,9 +1,0 @@
-/**
- * 
- */
-/**
- * 
- */
-module HerdeirosDeKhan {
-	exports Model;
-}

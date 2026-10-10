@@ -1,96 +1,164 @@
 package Model;
 
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 
 public final class ModeloApi {
-	private ModeloApi() {
-		throw new AssertionError("Classe utilitária");
+	private final Map<Integer, Jogador> jogadores = new HashMap<>();
+	private int proximoIdJogador = 1;
+
+	public int criarJogador(String nome, String cor, String herdeiro) {
+		Jogador jogador = new Jogador(nome, cor, herdeiro);
+		int id = proximoIdJogador;
+		int proximoId = Math.incrementExact(proximoIdJogador);
+		jogadores.put(id, jogador);
+		proximoIdJogador = proximoId;
+		return id;
 	}
 
-	public static Jogador criarJogador(String nome, String cor, String herdeiro) {
-		return new Jogador(nome, cor, herdeiro);
+	public String getNomeJogador(int idJogador) {
+		return obterJogador(idJogador).getNome();
 	}
 
-	public static void adicionarTributo(Jogador jogador, TipoTributo tipo) {
-		Objects.requireNonNull(jogador, "O jogador é obrigatório.");
-		jogador.adicionarTributo(new PecaTributo(tipo));
+	public String getCorJogador(int idJogador) {
+		return obterJogador(idJogador).getCor();
 	}
 
-	public static void adicionarRecursos(Jogador jogador, TipoTributo tipo, int quantidade) {
-		Objects.requireNonNull(jogador, "O jogador é obrigatório.");
-		jogador.adicionarRecursos(tipo, quantidade);
+	public String getHerdeiro(int idJogador) {
+		return obterJogador(idJogador).getHerdeiro();
 	}
 
-	public static boolean removerRecursos(Jogador jogador, TipoTributo tipo, int quantidade) {
-		Objects.requireNonNull(jogador, "O jogador é obrigatório.");
-		return jogador.removerRecursos(tipo, quantidade);
+	public void setHerdeiro(int idJogador, String herdeiro) {
+		obterJogador(idJogador).setHerdeiro(herdeiro);
 	}
 
-	public static int getQuantidadeRecurso(Jogador jogador, TipoTributo tipo) {
-		Objects.requireNonNull(jogador, "O jogador é obrigatório.");
-		return jogador.getQuantidadeRecurso(tipo);
+	public void adicionarTributo(int idJogador, TipoTributo tipo) {
+		obterJogador(idJogador).adicionarTributo(new PecaTributo(tipo));
 	}
 
-	public static Map<TipoTributo, Integer> getRecursos(Jogador jogador) {
-		Objects.requireNonNull(jogador, "O jogador é obrigatório.");
-		return jogador.getRecursos();
+	public void adicionarRecursos(int idJogador, TipoTributo tipo, int quantidade) {
+		obterJogador(idJogador).adicionarRecursos(tipo, quantidade);
 	}
 
-	public static int getYurts(Jogador jogador) {
-		Objects.requireNonNull(jogador, "O jogador é obrigatório.");
-		return jogador.getYurts();
+	public boolean removerRecursos(int idJogador, TipoTributo tipo, int quantidade) {
+		return obterJogador(idJogador).removerRecursos(tipo, quantidade);
 	}
 
-	public static void adicionarTesouro(Jogador jogador, String nome) {
-		Objects.requireNonNull(jogador, "O jogador é obrigatório.");
-		jogador.adicionarTesouro(new Tesouro(nome));
+	public int getQuantidadeRecurso(int idJogador, TipoTributo tipo) {
+		return obterJogador(idJogador).getQuantidadeRecurso(tipo);
 	}
 
-	public static List<String> getNomesTesouros(Jogador jogador) {
-		Objects.requireNonNull(jogador, "O jogador é obrigatório.");
-		return jogador.getNomesTesouros();
+	public Map<TipoTributo, Integer> getRecursos(int idJogador) {
+		return obterJogador(idJogador).getRecursos();
 	}
 
-	public static boolean removerTesouro(Jogador jogador, String nome) {
-		Objects.requireNonNull(jogador, "O jogador é obrigatório.");
-		return jogador.removerTesouro(new Tesouro(nome));
+	public int getYurts(int idJogador) {
+		return obterJogador(idJogador).getYurts();
 	}
 
-	public static void adicionarCartaConselheiro(Jogador jogador, String nome, String condicao, String recompensa,
+	public void adicionarTesouro(int idJogador, String nome) {
+		obterJogador(idJogador).adicionarTesouro(new Tesouro(nome));
+	}
+
+	public List<String> getNomesTesouros(int idJogador) {
+		return obterJogador(idJogador).getNomesTesouros();
+	}
+
+	public boolean removerTesouro(int idJogador, String nome) {
+		Tesouro tesouro = new Tesouro(nome);
+		return obterJogador(idJogador).removerTesouro(tesouro);
+	}
+
+	public void adicionarCartaConselheiro(int idJogador, String nome, String condicao, String recompensa,
 			boolean aberta) {
-		Objects.requireNonNull(jogador, "O jogador é obrigatório.");
-		jogador.adicionarCartaConselheiro(new CartaConselheiro(nome, condicao, recompensa, aberta));
+		obterJogador(idJogador)
+				.adicionarCartaConselheiro(new CartaConselheiro(nome, condicao, recompensa, aberta));
 	}
 
-	public static List<String> getNomesCartasConselheiro(Jogador jogador) {
-		Objects.requireNonNull(jogador, "O jogador é obrigatório.");
-		return jogador.getNomesCartasConselheiro();
+	public List<String> getNomesCartasConselheiro(int idJogador) {
+		return obterJogador(idJogador).getNomesCartasConselheiro();
 	}
 
-	public static void adicionarMelhoria(Jogador jogador, String nome, String efeito, String condicao) {
-		Objects.requireNonNull(jogador, "O jogador é obrigatório.");
-		jogador.adicionarMelhoria(new PecaMelhoria(nome, efeito, condicao));
+	public int getQuantidadeCartasConselheiro(int idJogador) {
+		return obterJogador(idJogador).getCartasConselheiro().size();
 	}
 
-	public static List<String> getNomesMelhorias(Jogador jogador) {
-		Objects.requireNonNull(jogador, "O jogador é obrigatório.");
-		return jogador.getNomesMelhorias();
+	public String getNomeCartaConselheiro(int idJogador, int indice) {
+		return obterCartaConselheiro(idJogador, indice).getNome();
 	}
 
-	public static int getVotos(Jogador jogador) {
-		Objects.requireNonNull(jogador, "O jogador é obrigatório.");
-		return jogador.getVotos();
+	public String getCondicaoCartaConselheiro(int idJogador, int indice) {
+		return obterCartaConselheiro(idJogador, indice).getCondicao();
 	}
 
-	public static void adicionarVotos(Jogador jogador, int quantidade) {
-		Objects.requireNonNull(jogador, "O jogador é obrigatório.");
-		jogador.adicionarVotos(quantidade);
+	public String getRecompensaCartaConselheiro(int idJogador, int indice) {
+		return obterCartaConselheiro(idJogador, indice).getRecompensa();
 	}
 
-	public static boolean removerVotos(Jogador jogador, int quantidade) {
-		Objects.requireNonNull(jogador, "O jogador é obrigatório.");
-		return jogador.removerVotos(quantidade);
+	public boolean isCartaConselheiroAberta(int idJogador, int indice) {
+		return obterCartaConselheiro(idJogador, indice).isAberta();
+	}
+
+	public void revelarCartaConselheiro(int idJogador, int indice) {
+		obterCartaConselheiro(idJogador, indice).revelar();
+	}
+
+	public void adicionarMelhoria(int idJogador, String nome, String efeito, String condicao) {
+		obterJogador(idJogador).adicionarMelhoria(new PecaMelhoria(nome, efeito, condicao));
+	}
+
+	public List<String> getNomesMelhorias(int idJogador) {
+		return obterJogador(idJogador).getNomesMelhorias();
+	}
+
+	public int getQuantidadeMelhorias(int idJogador) {
+		return obterJogador(idJogador).getMelhorias().size();
+	}
+
+	public String getNomeMelhoria(int idJogador, int indice) {
+		return obterMelhoria(idJogador, indice).getNome();
+	}
+
+	public String getEfeitoMelhoria(int idJogador, int indice) {
+		return obterMelhoria(idJogador, indice).getEfeito();
+	}
+
+	public String getCondicaoMelhoria(int idJogador, int indice) {
+		return obterMelhoria(idJogador, indice).getCondicao();
+	}
+
+	public int getVotos(int idJogador) {
+		return obterJogador(idJogador).getVotos();
+	}
+
+	public void adicionarVotos(int idJogador, int quantidade) {
+		obterJogador(idJogador).adicionarVotos(quantidade);
+	}
+
+	public boolean removerVotos(int idJogador, int quantidade) {
+		return obterJogador(idJogador).removerVotos(quantidade);
+	}
+
+	private Jogador obterJogador(int idJogador) {
+		Jogador jogador = jogadores.get(idJogador);
+		if (jogador == null) {
+			throw new IllegalArgumentException("Não existe jogador com o identificador " + idJogador + ".");
+		}
+		return jogador;
+	}
+
+	private CartaConselheiro obterCartaConselheiro(int idJogador, int indice) {
+		return obterPorIndice(obterJogador(idJogador).getCartasConselheiro(), indice);
+	}
+
+	private PecaMelhoria obterMelhoria(int idJogador, int indice) {
+		return obterPorIndice(obterJogador(idJogador).getMelhorias(), indice);
+	}
+
+	private static <T> T obterPorIndice(List<T> itens, int indice) {
+		Objects.checkIndex(indice, itens.size());
+		return itens.get(indice);
 	}
 }

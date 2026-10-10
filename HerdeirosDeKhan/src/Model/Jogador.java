@@ -6,7 +6,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 
-public final class Jogador {
+final class Jogador {
 	private final String nome;
 	private final String cor;
 	private String herdeiro;
@@ -16,7 +16,7 @@ public final class Jogador {
 	private final List<PecaMelhoria> melhorias;
 	private int votos;
 
-	public Jogador(String nome, String cor, String herdeiro) {
+	Jogador(String nome, String cor, String herdeiro) {
 		this.nome = validarTexto(nome, "O nome do jogador é obrigatório.");
 		this.cor = validarTexto(cor, "A cor do jogador é obrigatória.");
 		this.herdeiro = validarTexto(herdeiro, "O herdeiro é obrigatório.");
@@ -34,49 +34,49 @@ public final class Jogador {
 		return texto;
 	}
 
-	public String getNome() {
+	String getNome() {
 		return nome;
 	}
 
-	public String getCor() {
+	String getCor() {
 		return cor;
 	}
 
-	public String getHerdeiro() {
+	String getHerdeiro() {
 		return herdeiro;
 	}
 
-	public void setHerdeiro(String herdeiro) {
+	void setHerdeiro(String herdeiro) {
 		this.herdeiro = validarTexto(herdeiro, "O herdeiro é obrigatório.");
 	}
 
-	public int getQuantidadeRecurso(TipoTributo tipo) {
+	int getQuantidadeRecurso(TipoTributo tipo) {
 		return recursos.getOrDefault(Objects.requireNonNull(tipo), 0);
 	}
 
-	public int getYurts() {
+	int getYurts() {
 		return getQuantidadeRecurso(TipoTributo.YURT);
 	}
 
-	public Map<TipoTributo, Integer> getRecursos() {
+	Map<TipoTributo, Integer> getRecursos() {
 		return Map.copyOf(recursos);
 	}
 
-	public void adicionarTributo(PecaTributo tributo) {
+	void adicionarTributo(PecaTributo tributo) {
 		Objects.requireNonNull(tributo, "A peça de tributo é obrigatória.");
 		adicionarRecursos(tributo.getTipo(), 1);
 	}
 
-	public void adicionarRecursos(TipoTributo tipo, int quantidade) {
+	void adicionarRecursos(TipoTributo tipo, int quantidade) {
 		Objects.requireNonNull(tipo, "O tipo do tributo é obrigatório.");
 		validarQuantidade(quantidade);
 		if (quantidade == 0) {
 			return;
 		}
-		recursos.merge(tipo, quantidade, Integer::sum);
+		recursos.merge(tipo, quantidade, Math::addExact);
 	}
 
-	public boolean removerRecursos(TipoTributo tipo, int quantidade) {
+	boolean removerRecursos(TipoTributo tipo, int quantidade) {
 		Objects.requireNonNull(tipo, "O tipo do tributo é obrigatório.");
 		validarQuantidade(quantidade);
 		int disponivel = getQuantidadeRecurso(tipo);
@@ -97,7 +97,7 @@ public final class Jogador {
 		}
 	}
 
-	public List<String> getNomesTesouros() {
+	List<String> getNomesTesouros() {
 		return tesouros.stream().map(Tesouro::getNome).toList();
 	}
 
@@ -105,15 +105,15 @@ public final class Jogador {
 		return List.copyOf(tesouros);
 	}
 
-	public void adicionarTesouro(Tesouro tesouro) {
+	void adicionarTesouro(Tesouro tesouro) {
 		tesouros.add(Objects.requireNonNull(tesouro, "O tesouro é obrigatório."));
 	}
 
-	public boolean removerTesouro(Tesouro tesouro) {
+	boolean removerTesouro(Tesouro tesouro) {
 		return tesouros.remove(Objects.requireNonNull(tesouro, "O tesouro é obrigatório."));
 	}
 
-	public List<String> getNomesCartasConselheiro() {
+	List<String> getNomesCartasConselheiro() {
 		return cartasConselheiro.stream().map(CartaConselheiro::getNome).toList();
 	}
 
@@ -121,11 +121,11 @@ public final class Jogador {
 		return List.copyOf(cartasConselheiro);
 	}
 
-	public void adicionarCartaConselheiro(CartaConselheiro carta) {
+	void adicionarCartaConselheiro(CartaConselheiro carta) {
 		cartasConselheiro.add(Objects.requireNonNull(carta, "A carta é obrigatória."));
 	}
 
-	public List<String> getNomesMelhorias() {
+	List<String> getNomesMelhorias() {
 		return melhorias.stream().map(PecaMelhoria::getNome).toList();
 	}
 
@@ -133,20 +133,20 @@ public final class Jogador {
 		return List.copyOf(melhorias);
 	}
 
-	public void adicionarMelhoria(PecaMelhoria melhoria) {
+	void adicionarMelhoria(PecaMelhoria melhoria) {
 		melhorias.add(Objects.requireNonNull(melhoria, "A melhoria é obrigatória."));
 	}
 
-	public int getVotos() {
+	int getVotos() {
 		return votos;
 	}
 
-	public void adicionarVotos(int quantidade) {
+	void adicionarVotos(int quantidade) {
 		validarQuantidade(quantidade);
 		votos = Math.addExact(votos, quantidade);
 	}
 
-	public boolean removerVotos(int quantidade) {
+	boolean removerVotos(int quantidade) {
 		validarQuantidade(quantidade);
 		if (votos < quantidade) {
 			return false;

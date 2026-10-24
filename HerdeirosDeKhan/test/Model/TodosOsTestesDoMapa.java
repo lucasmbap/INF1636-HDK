@@ -12,7 +12,11 @@ import org.junit.runners.Suite;
 	MapaMovimentoTest.class,
 	MapaYurtTest.class,
 	MapaProvinciaKhanTest.class,
-	MapaCidadeTest.class
+	MapaCidadeTest.class,
+	MapaOficialTest.class,
+	MapaCaminhoTest.class,
+	PartidaTest.class,
+	ModeloApiPartidaTest.class
 })
 public class TodosOsTestesDoMapa {
 }

@@ -121,4 +121,14 @@ class Parada {
 	int getNumYurts() {
 		return yurts.size();
 	}
+
+	/** Cores dos donos dos yurts desta parada (copia). */
+	List<String> getYurts() {
+		return new ArrayList<String>(yurts);
+	}
+
+	/** Cores dos peoes que estao nesta parada (copia). */
+	List<String> getPeoes() {
+		return new ArrayList<String>(peoes);
+	}
 }

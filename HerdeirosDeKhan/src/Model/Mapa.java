@@ -146,6 +146,34 @@ class Mapa {
 		return paradas.containsKey(nome);
 	}
 
+	List<String> getNomesParadas() {
+		return new ArrayList<String>(paradas.keySet());
+	}
+
+	List<String> getNomesProvincias() {
+		return new ArrayList<String>(provincias.keySet());
+	}
+
+	List<String> getNomesCidades() {
+		return new ArrayList<String>(cidades.keySet());
+	}
+
+	/** Cores dos peoes numa parada (lista vazia se a parada nao existir). */
+	List<String> getPeoesNaParada(String parada) {
+		Parada p = paradas.get(parada);
+		if (p == null)
+			return new ArrayList<String>();
+		return p.getPeoes();
+	}
+
+	/** Cores dos donos dos yurts numa parada (lista vazia se nao existir). */
+	List<String> getYurtsNaParada(String parada) {
+		Parada p = paradas.get(parada);
+		if (p == null)
+			return new ArrayList<String>();
+		return p.getYurts();
+	}
+
 	boolean saoAdjacentes(String a, String b) {
 		List<String> vizinhas = rotas.get(a);
 		return vizinhas != null && vizinhas.contains(b);
@@ -285,6 +313,76 @@ class Mapa {
 		paradas.get(destino).adicionarPeao(cor);
 		posicaoPeao.put(cor, destino);
 		return custo;
+	}
+
+	/**
+	 * Caminho mais barato (em movimentos) do peao ate o destino, sem incluir
+	 * a origem. Usado quando o jogador clica so na parada de destino.
+	 * Passar por uma parada com yurt proprio custa 0; as demais custam 1;
+	 * a parada final sempre custa 1. Retorna lista vazia se o destino nao
+	 * puder receber o peao ou nao houver caminho.
+	 *
+	 * Algoritmo: relaxa repetidamente os custos (como Bellman-Ford) ate que
+	 * nenhum custo diminua. O destino nunca e usado como parada
+	 * intermediaria.
+	 */
+	List<String> melhorCaminho(String cor, String destino) {
+		List<String> vazio = new ArrayList<String>();
+		String origem = posicaoPeao.get(cor);
+		Parada pd = paradas.get(destino);
+		if (origem == null || pd == null || origem.equals(destino) || !pd.podeReceberPeao(cor))
+			return vazio;
+
+		// custo para estar em cada parada como intermediaria
+		Map<String, Integer> custo = new HashMap<String, Integer>();
+		Map<String, String> anterior = new HashMap<String, String>();
+		custo.put(origem, 0);
+		boolean mudou = true;
+		while (mudou) {
+			mudou = false;
+			for (String u : new ArrayList<String>(custo.keySet())) {
+				for (String v : rotas.get(u)) {
+					if (v.equals(destino) || v.equals(origem))
+						continue;
+					int c = custo.get(u) + (paradas.get(v).temYurtDe(cor) ? 0 : 1);
+					if (!custo.containsKey(v) || c < custo.get(v)) {
+						custo.put(v, c);
+						anterior.put(v, u);
+						mudou = true;
+					}
+				}
+			}
+		}
+
+		// a ultima parada antes do destino
+		String melhorAntes = null;
+		for (String u : rotas.get(destino)) {
+			if (custo.containsKey(u) && (melhorAntes == null || custo.get(u) < custo.get(melhorAntes)))
+				melhorAntes = u;
+		}
+		if (melhorAntes == null)
+			return vazio;
+
+		LinkedList<String> caminho = new LinkedList<String>();
+		caminho.addFirst(destino);
+		String atual = melhorAntes;
+		while (!atual.equals(origem)) {
+			caminho.addFirst(atual);
+			atual = anterior.get(atual);
+		}
+		return new ArrayList<String>(caminho);
+	}
+
+	/**
+	 * Move o peao ate o destino pelo caminho mais barato. Retorna os
+	 * movimentos gastos, ou -1 se nao for possivel com os movimentos
+	 * disponiveis (nesse caso o peao nao sai do lugar).
+	 */
+	int moverPeaoPara(String cor, String destino, int movimentosDisponiveis) {
+		List<String> caminho = melhorCaminho(cor, destino);
+		if (caminho.isEmpty())
+			return -1;
+		return moverPeao(cor, caminho, movimentosDisponiveis);
 	}
 
 	/**

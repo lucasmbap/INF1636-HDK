@@ -1,5 +1,8 @@
 package Model;
 
+import java.util.ArrayDeque;
+import java.util.ArrayList;
+import java.util.Deque;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -8,7 +11,10 @@ import java.util.Objects;
 public final class ModeloApi {
 	private final Map<Integer, Jogador> jogadores = new HashMap<>();
 	private int proximoIdJogador = 1;
-	private final Partida partida = new Partida(MapaOficial.criar());
+	private final Mapa mapa = MapaOficial.criar();
+	private final List<Jogador> ordemJogadores = new ArrayList<Jogador>(); // ordem dos turnos
+	private Partida partida = null; // criada em iniciarPartida()
+	private final List<ObservadorModelo> observadores = new ArrayList<ObservadorModelo>();
 
 	public int criarJogador(String nome, String cor, String herdeiro) {
 		Jogador jogador = new Jogador(nome, cor, herdeiro);
@@ -16,7 +22,8 @@ public final class ModeloApi {
 		int proximoId = Math.incrementExact(proximoIdJogador);
 		jogadores.put(id, jogador);
 		proximoIdJogador = proximoId;
-		partida.adicionarJogador(jogador); // entra na partida, na ordem de criacao
+		if (partida == null)
+			ordemJogadores.add(jogador); // entra na partida, na ordem de criacao
 		return id;
 	}
 
@@ -145,30 +152,64 @@ public final class ModeloApi {
 
 	// =====================================================================
 	// Partida, turno e mapa (2a iteracao)
-	// Os jogadores sao identificados pela cor nestes metodos, pois e pela
-	// cor que a View desenha peoes e yurts.
+	// As regras ficam na classe Partida; o mapa, em MapaOficial. Os
+	// jogadores sao identificados pela cor nestes metodos, pois e pela cor
+	// que a View desenha peoes e yurts.
 	// =====================================================================
 
+	// ordem em que as cidades sao reveladas e tipos de tesouro (8 de cada)
+	private static final String[] ORDEM_CIDADES = { "Kiev", "Pequim", "Bagda", "Moscou", "Kaesong",
+			"Samarcanda", "Sarai", "Cantao", "Cabul" };
+	private static final String[] TIPOS_TESOURO = { "gado", "especiaria", "pele", "ferro", "seda" };
+	private static final int CIDADES_INICIAIS = 3;
+	private static final int TESOUROS_POR_CIDADE = 4;
+
 	/**
-	 * Comeca a partida com os jogadores ja criados (minimo 2): coloca os
-	 * peoes em Karakorum e 1 tributo em cada provincia.
+	 * Comeca a partida com os jogadores ja criados (2 a 5): peoes em
+	 * Karakorum, 1 tributo em cada provincia e 3 cidades reveladas com 4
+	 * tesouros cada. Retorna false se ja comecou ou se o numero de
+	 * jogadores nao for valido.
 	 */
 	public boolean iniciarPartida() {
-		return partida.iniciar();
+		if (partida != null || ordemJogadores.size() < 2 || ordemJogadores.size() > 5)
+			return false;
+		Deque<Tesouro> pilha = new ArrayDeque<Tesouro>();
+		for (int i = 0; i < 8; i++)
+			for (String t : TIPOS_TESOURO)
+				pilha.add(new Tesouro(t));
+		Deque<String> fechadas = new ArrayDeque<String>();
+		for (int i = 0; i < ORDEM_CIDADES.length; i++) {
+			if (i < CIDADES_INICIAIS) {
+				List<Tesouro> tesouros = new ArrayList<Tesouro>();
+				for (int k = 0; k < TESOUROS_POR_CIDADE; k++)
+					tesouros.add(pilha.poll());
+				mapa.revelarCidade(ORDEM_CIDADES[i], tesouros);
+			} else {
+				fechadas.add(ORDEM_CIDADES[i]);
+			}
+		}
+		for (String prov : mapa.getNomesProvincias())
+			mapa.colocarTributo(prov);
+		partida = new Partida(mapa, ordemJogadores, fechadas, pilha);
+		partida.iniciarTurno(0, 0);
+		notificar();
+		return true;
 	}
 
 	public boolean isPartidaIniciada() {
-		return partida.isIniciada();
+		return partida != null;
 	}
 
 	/** Cor do jogador da vez, ou null se a partida nao comecou. */
 	public String getCorDaVez() {
-		return partida.getCorDaVez();
+		if (partida == null)
+			return null;
+		return partida.getCorAtual();
 	}
 
 	/** Identificador (o mesmo de criarJogador) do jogador da vez, ou -1. */
 	public int getIdJogadorDaVez() {
-		String cor = partida.getCorDaVez();
+		String cor = getCorDaVez();
 		for (Map.Entry<Integer, Jogador> e : jogadores.entrySet())
 			if (e.getValue().getCor().equals(cor))
 				return e.getKey();
@@ -177,15 +218,33 @@ public final class ModeloApi {
 
 	/** Cores dos jogadores na ordem dos turnos. */
 	public List<String> getCores() {
-		return partida.getCores();
+		List<String> cores = new ArrayList<String>();
+		for (Jogador j : ordemJogadores)
+			cores.add(j.getCor());
+		return cores;
 	}
 
-	/** Define os movimentos do jogador da vez (escolha do testador). */
+	/**
+	 * Define os movimentos do jogador da vez (escolha do testador, no lugar
+	 * dos "dados"). Comeca de novo o turno do jogador atual com esses
+	 * movimentos e sem punhos.
+	 */
 	public boolean definirMovimentos(int quantidade) {
-		return partida.definirMovimentos(quantidade);
+		return iniciarTurno(quantidade, 0);
+	}
+
+	/** Comeca o turno do jogador da vez com os movimentos e punhos da coluna escolhida. */
+	public boolean iniciarTurno(int movimentos, int punhos) {
+		if (partida == null || partida.isEncerrada() || movimentos < 0 || punhos < 0)
+			return false;
+		partida.iniciarTurno(movimentos, punhos);
+		notificar();
+		return true;
 	}
 
 	public int getMovimentosRestantes() {
+		if (partida == null)
+			return 0;
 		return partida.getMovimentosRestantes();
 	}
 
@@ -194,46 +253,56 @@ public final class ModeloApi {
 	 * movimento nao for permitido; nesse caso nada muda.
 	 */
 	public boolean moverPara(String parada) {
-		return partida.moverPara(parada);
+		if (partida == null || !partida.moverPara(parada))
+			return false;
+		notificar();
+		return true;
 	}
 
 	/** Encerra o turno e passa a vez para o proximo jogador. */
 	public void passarVez() {
-		partida.passarVez();
+		if (partida == null || partida.isEncerrada())
+			return;
+		partida.encerrarTurno();
+		if (!partida.isEncerrada())
+			partida.iniciarTurno(0, 0);
+		notificar();
 	}
 
 	/** Paradas onde o jogador da vez esteve neste turno. */
 	public List<String> getParadasVisitadasNoTurno() {
-		return partida.getParadasVisitadasNoTurno();
+		if (partida == null)
+			return new ArrayList<String>();
+		return partida.getParadasVisitadas();
 	}
 
 	/** Parada onde esta o peao da cor indicada, ou null. */
 	public String getPosicao(String cor) {
-		return partida.getMapa().getPosicao(cor);
+		return mapa.getPosicao(cor);
 	}
 
 	/** Nomes de todas as paradas (R1..R11, C1..C11, P1..P11 e Karakorum). */
 	public List<String> getParadas() {
-		return partida.getMapa().getNomesParadas();
+		return mapa.getNomesParadas();
 	}
 
 	/** Cores dos peoes que estao na parada. */
 	public List<String> getPeoesNaParada(String parada) {
-		return partida.getMapa().getPeoesNaParada(parada);
+		return mapa.getPeoesNaParada(parada);
 	}
 
 	/** Cores dos donos dos yurts da parada. */
 	public List<String> getYurtsNaParada(String parada) {
-		return partida.getMapa().getYurtsNaParada(parada);
+		return mapa.getYurtsNaParada(parada);
 	}
 
 	public List<String> getProvincias() {
-		return partida.getMapa().getNomesProvincias();
+		return mapa.getNomesProvincias();
 	}
 
 	/** Quantidade de pecas de tributo na provincia (0 a 3). */
 	public int getTributos(String provincia) {
-		Provincia p = partida.getMapa().getProvincia(provincia);
+		Provincia p = mapa.getProvincia(provincia);
 		if (p == null)
 			return 0;
 		return p.getQuantidade();
@@ -241,7 +310,7 @@ public final class ModeloApi {
 
 	/** Tipo de tributo da provincia, ou null se ela nao existir. */
 	public TipoTributo getTipoTributo(String provincia) {
-		Provincia p = partida.getMapa().getProvincia(provincia);
+		Provincia p = mapa.getProvincia(provincia);
 		if (p == null)
 			return null;
 		return p.getTipo();
@@ -249,16 +318,21 @@ public final class ModeloApi {
 
 	/** Provincia do Khan onde ele esta, "Area de melhorias" ou null. */
 	public String getPosicaoKhan() {
-		return partida.getMapa().getPosicaoKhan();
+		return mapa.getPosicaoKhan();
 	}
 
 	public List<String> getCidades() {
-		return partida.getMapa().getNomesCidades();
+		return mapa.getNomesCidades();
+	}
+
+	/** Cidades que ja foram reveladas e ainda tem tesouros. */
+	public List<String> getCidadesDisponiveis() {
+		return mapa.getCidadesDisponiveis();
 	}
 
 	/** Cor de quem conquistou a cidade, ou null. */
 	public String getConquistadorCidade(String cidade) {
-		Cidade c = partida.getMapa().getCidade(cidade);
+		Cidade c = mapa.getCidade(cidade);
 		if (c == null)
 			return null;
 		return c.getConquistador();
@@ -266,11 +340,17 @@ public final class ModeloApi {
 
 	/** Padrao Observer: a View e avisada a cada mudanca da partida. */
 	public void registrarObservador(ObservadorModelo o) {
-		partida.registrarObservador(o);
+		if (o != null && !observadores.contains(o))
+			observadores.add(o);
 	}
 
 	public void removerObservador(ObservadorModelo o) {
-		partida.removerObservador(o);
+		observadores.remove(o);
+	}
+
+	private void notificar() {
+		for (ObservadorModelo o : observadores)
+			o.modeloAlterado();
 	}
 
 	private Jogador obterJogador(int idJogador) {

@@ -1,0 +1,13 @@
+ROTEIRO DO VIDEO - 2a ITERACAO
+
+1. Apresentar o jogo e explicar brevemente o que foi implementado nesta iteracao.
+2. Mostrar o tabuleiro, os peoes e a cor do jogador da vez.
+3. Escolher um valor de movimentos no painel, aplicar e mostrar a quantidade restante.
+4. Clicar em uma parada alcancavel e mostrar o peao se deslocando.
+5. Tentar uma parada invalida ou distante demais e confirmar que nada muda e que a vez nao passa.
+6. Mostrar o uso de uma passagem secreta, se ela estiver implementada no Model.
+7. Usar o botao Proximo jogador e confirmar a atualizacao do jogador da vez.
+8. Se pertinente, salvar um resumo da partida. O arquivo gerado por este controlador e informativo; nao permite retomar a partida.
+9. Relatar problemas e funcionalidades nao concluidas, e indicar o que sera feito na proxima iteracao.
+
+Observacao para a gravacao: os cliques devem ser feitos no tabuleiro; nao usar botoes/setas como substituto para movimentar os peoes.

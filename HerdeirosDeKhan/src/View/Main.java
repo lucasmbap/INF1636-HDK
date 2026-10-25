@@ -1,29 +1,25 @@
 package View;
 
-import javax.swing.SwingUtilities;
-
 import Model.ModeloApi;
 
 /**
- * Teste da View (2a iteracao, sem janelas iniciais).
- * Cria 3 jogadores so para ver o tabuleiro. O Controller ainda nao esta ligado:
- * quando ele existir, descomente a linha indicada.
+ * Inicializacao do jogo (2a iteracao, sem janelas iniciais): cria a partida de
+ * teste e entrega o componente do tabuleiro ao Controller, que abre a janela,
+ * liga os cliques e os botoes (Controller.Main.iniciar).
  */
 public class Main {
-	public static void main(String[] args) {
-		SwingUtilities.invokeLater(new Runnable() {
-			@Override
-			public void run() {
-				ModeloApi modelo = new ModeloApi();
-				modelo.criarJogador("Ana", "vermelho", "Tolui");
-				modelo.criarJogador("Bruno", "azul", "Jochi");
-				modelo.criarJogador("Carla", "verde", "Chagatai");
-				modelo.iniciarPartida();
+	/** Imagem do tabuleiro, relativa a pasta de execucao (raiz do projeto). */
+	public static final String CAMINHO_TABULEIRO = "imagens/tabuleiro.jpg";
 
-				JanelaJogo janela = new JanelaJogo(modelo);
-				// janela.setOuvinte(new Controlador(modelo)); // Controller implementa OuvinteJogo
-				janela.setVisible(true);
-			}
-		});
+	public static void main(String[] args) {
+		ModeloApi modelo = new ModeloApi();
+		modelo.criarJogador("Ana", "vermelho", "Tolui");
+		modelo.criarJogador("Bruno", "azul", "Jochi");
+		modelo.criarJogador("Carla", "verde", "Chagatai");
+		modelo.iniciarPartida();
+
+		// o componente e criado na thread principal, mas so e mostrado pela thread de eventos
+		PainelTabuleiro tabuleiro = new PainelTabuleiro(modelo, CAMINHO_TABULEIRO);
+		Controller.Main.iniciar(modelo, tabuleiro);
 	}
 }

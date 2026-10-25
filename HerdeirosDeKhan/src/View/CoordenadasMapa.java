@@ -124,7 +124,7 @@ public class CoordenadasMapa {
 		String maisProxima = null;
 		double menorDist = RAIO_PARADA;
 		for (Map.Entry<String, Point> e : paradas.entrySet()) {
-			double d = e.getValue().distance(x, y);
+			double d = PosicoesDuplas.distancia(e.getKey(), e.getValue(), x, y);
 			if (d <= menorDist) {
 				menorDist = d;
 				maisProxima = e.getKey();

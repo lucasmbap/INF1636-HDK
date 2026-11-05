@@ -15,13 +15,14 @@ import javax.swing.JFileChooser;
 import javax.swing.SwingUtilities;
 
 import Model.ModeloApi;
-import Model.ObservadorModelo;
+import Model.ObservadoIF;
+import Model.ObservadorIF;
 import View.CoordenadasMapa;
 
 /**
  * Faz a ligacao entre os cliques/controles da interface e a API do modelo.
  */
-public final class ControladorJogo implements ActionListener, MouseListener, ObservadorModelo {
+public final class ControladorJogo implements ActionListener, MouseListener, ObservadorIF {
 	private static final String APLICAR_MOVIMENTOS = "aplicarMovimentos";
 	private static final String PROXIMO_JOGADOR = "proximoJogador";
 	private static final String SALVAR_RESUMO = "salvarResumo";
@@ -48,7 +49,7 @@ public final class ControladorJogo implements ActionListener, MouseListener, Obs
 		painelControle.getBotaoProximoJogador().addActionListener(this);
 		painelControle.getBotaoSalvar().addActionListener(this);
 		tabuleiro.addMouseListener(this);
-		modelo.registrarObservador(this);
+		modelo.add(this);
 		atualizarInterface();
 	}
 
@@ -124,7 +125,7 @@ public final class ControladorJogo implements ActionListener, MouseListener, Obs
 	}
 
 	@Override
-	public void modeloAlterado() {
+	public void notify(ObservadoIF o) {
 		if (SwingUtilities.isEventDispatchThread()) {
 			atualizarDepoisDaMudanca();
 		} else {
@@ -162,7 +163,7 @@ public final class ControladorJogo implements ActionListener, MouseListener, Obs
 			return;
 		encerrado = true;
 		tabuleiro.removeMouseListener(this);
-		modelo.removerObservador(this);
+		modelo.remove(this);
 		painelControle.getBotaoIniciarTurno().removeActionListener(this);
 		painelControle.getBotaoProximoJogador().removeActionListener(this);
 		painelControle.getBotaoSalvar().removeActionListener(this);

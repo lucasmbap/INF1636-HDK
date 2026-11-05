@@ -10,7 +10,7 @@ import org.junit.Test;
 public class ModeloApiTest {
 	@Test
 	public void jogadorInvalidoNaoConsomeIdentificador() {
-		ModeloApi api = new ModeloApi();
+		ModeloApi api = apiNova();
 
 		RuntimeException erro = capturarErro(() -> api.criarJogador(" ", "Azul", "Khan"));
 
@@ -20,7 +20,7 @@ public class ModeloApiTest {
 
 	@Test
 	public void recursosNaoFicamNegativosNemPodemSerRetiradosAcimaDoSaldo() {
-		ModeloApi api = new ModeloApi();
+		ModeloApi api = apiNova();
 		int jogador = api.criarJogador("Ana", "Azul", "Khan");
 		api.adicionarRecursos(jogador, TipoTributo.YURT, 3);
 
@@ -35,7 +35,7 @@ public class ModeloApiTest {
 
 	@Test
 	public void overflowDeRecursosNaoAlteraSaldoExistente() {
-		ModeloApi api = new ModeloApi();
+		ModeloApi api = apiNova();
 		int jogador = api.criarJogador("Ana", "Azul", "Khan");
 		api.adicionarRecursos(jogador, TipoTributo.MOEDA, Integer.MAX_VALUE);
 
@@ -48,7 +48,7 @@ public class ModeloApiTest {
 
 	@Test
 	public void tesouroPodeSerRetiradoPorNomeECartaPodeSerRevelada() {
-		ModeloApi api = new ModeloApi();
+		ModeloApi api = apiNova();
 		int jogador = api.criarJogador("Ana", "Azul", "Khan");
 		api.adicionarTesouro(jogador, "Jade");
 		assertTrue(api.removerTesouro(jogador, "Jade"));
@@ -71,5 +71,12 @@ public class ModeloApiTest {
 		}
 		fail("Era esperada uma exceção.");
 		return null;
+	}
+
+	// a ModeloApi e um Singleton: cada teste comeca com a instancia zerada
+	private static ModeloApi apiNova() {
+		ModeloApi api = ModeloApi.getInstance();
+		api.novaPartida();
+		return api;
 	}
 }

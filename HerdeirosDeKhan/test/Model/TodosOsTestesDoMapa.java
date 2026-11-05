@@ -16,7 +16,9 @@ import org.junit.runners.Suite;
 	MapaOficialTest.class,
 	MapaCaminhoTest.class,
 	PartidaTest.class,
-	ModeloApiPartidaTest.class
+	ModeloApiPartidaTest.class,
+	CartelaTest.class,
+	ModeloApiCartelaTest.class
 })
 public class TodosOsTestesDoMapa {
 }

@@ -17,7 +17,7 @@ public class ModeloApiPartidaTest {
 
 	@Before
 	public void criaPartidaComDoisJogadores() {
-		api = new ModeloApi();
+		api = apiNova();
 		idAna = api.criarJogador("Ana", "Vermelho", "Tolui");
 		api.criarJogador("Bia", "Azul", "Jochi");
 		api.iniciarPartida();
@@ -30,7 +30,7 @@ public class ModeloApiPartidaTest {
 
 	@Test(timeout = DEFAULT_TIMEOUT)
 	public void partidaComUmJogador_naoInicia() {
-		ModeloApi outra = new ModeloApi();
+		ModeloApi outra = apiNova();
 		outra.criarJogador("Ana", "Vermelho", "Tolui");
 		assertFalse("Sao necessarios pelo menos 2 jogadores", outra.iniciarPartida());
 	}
@@ -84,18 +84,25 @@ public class ModeloApiPartidaTest {
 	@Test(timeout = DEFAULT_TIMEOUT)
 	public void movimento_avisaOsObservadores() {
 		ContadorDeAvisos contador = new ContadorDeAvisos();
-		api.registrarObservador(contador);
+		api.add(contador);
 		api.definirMovimentos(1);
 		api.moverPara("R9");
 		assertEquals("Um aviso ao definir movimentos e outro ao mover", 2, contador.avisos);
 	}
 
 	// observador usado so neste teste
-	private static class ContadorDeAvisos implements ObservadorModelo {
+	private static class ContadorDeAvisos implements ObservadorIF {
 		int avisos = 0;
 
-		public void modeloAlterado() {
+		public void notify(ObservadoIF o) {
 			avisos++;
 		}
+	}
+
+	// a ModeloApi e um Singleton: cada teste comeca com a instancia zerada
+	private static ModeloApi apiNova() {
+		ModeloApi api = ModeloApi.getInstance();
+		api.novaPartida();
+		return api;
 	}
 }

@@ -27,7 +27,6 @@ class Partida {
 	private final Mapa mapa;
 	private final Map<String, Jogador> jogadores = new HashMap<String, Jogador>();
 	private final List<String> ordem = new ArrayList<String>();
-	private final Map<String, Map<Regiao, Integer>> melhorias = new HashMap<String, Map<Regiao, Integer>>();
 	private final Deque<String> cidadesFechadas;
 	private final Deque<Tesouro> pilhaTesouros;
 
@@ -45,6 +44,13 @@ class Partida {
 	private int punhos;
 	private List<String> visitadas = new ArrayList<String>();
 	private Map<String, Integer> tesourosTomadosNoTurno = new HashMap<String, Integer>();
+
+	// cartelas e estado do turno ligado a elas (3a iteracao)
+	private final Map<String, Cartela> cartelas = new HashMap<String, Cartela>();
+	private ColunaCartela colunaAtivada = null;
+	private boolean khanPendente = false;
+	private Map<TipoTributo, Integer> virtuais = new HashMap<TipoTributo, Integer>();
+	private List<String> tesourosVirtuais = new ArrayList<String>();
 
 	/**
 	 * @param jogadoresEmOrdem  ordem de jogo (o primeiro e quem comeca)
@@ -66,7 +72,7 @@ class Partida {
 				throw new IllegalArgumentException("Cor repetida: " + j.getCor());
 			jogadores.put(j.getCor(), j);
 			ordem.add(j.getCor());
-			melhorias.put(j.getCor(), new HashMap<Regiao, Integer>());
+			cartelas.put(j.getCor(), new Cartela(j.getHerdeiro()));
 			mapa.colocarPeao(j.getCor(), Mapa.KARAKORUM);
 		}
 		this.limiteVotos = LIMITE_VOTOS[n];
@@ -105,7 +111,7 @@ class Partida {
 	}
 
 	int getMelhoriasNaColuna(String cor, Regiao coluna) {
-		return melhorias.get(cor).getOrDefault(coluna, 0);
+		return cartelas.get(cor).getNumMelhorias(ColunaCartela.daRegiao(coluna));
 	}
 
 	private Jogador jogadorAtual() {
@@ -132,6 +138,10 @@ class Partida {
 		this.visitadas = new ArrayList<String>();
 		this.visitadas.add(mapa.getPosicao(getCorAtual()));
 		this.tesourosTomadosNoTurno = new HashMap<String, Integer>();
+		this.colunaAtivada = null;
+		this.khanPendente = false;
+		this.virtuais = new HashMap<TipoTributo, Integer>();
+		this.tesourosVirtuais = new ArrayList<String>();
 	}
 
 	/**
@@ -139,6 +149,7 @@ class Partida {
 	 * proxima e a rodada extra; terminada a rodada extra, o jogo acaba.
 	 */
 	void encerrarTurno() {
+		cartelas.get(getCorAtual()).fimDoTurno();
 		turnoAtivo = false;
 		verificarFimPorCidades();
 		indiceAtual++;
@@ -230,11 +241,11 @@ class Partida {
 		Jogador j = jogadorAtual();
 		int jaTomados = tesourosTomadosNoTurno.getOrDefault(cidade, 0);
 		int custo = (jaTomados == 0) ? 1 : 2;
-		if (j.getQuantidadeRecurso(TipoTributo.ESPADA) < custo)
+		if (disponivel(TipoTributo.ESPADA) < custo)
 			return false;
 		if (!mapa.retirarTesouroDeCidade(cidade, tesouro, getCorAtual(), visitadas))
 			return false;
-		j.removerRecursos(TipoTributo.ESPADA, custo);
+		gastar(TipoTributo.ESPADA, custo);
 		j.adicionarTesouro(tesouro);
 		tesourosTomadosNoTurno.put(cidade, jaTomados + 1);
 		if (mapa.getCidade(cidade).isConquistada()) {
@@ -261,28 +272,34 @@ class Partida {
 			return false;
 		String cor = getCorAtual();
 		Jogador j = jogadorAtual();
-		if (j.getQuantidadeRecurso(TipoTributo.YURT) < 1)
+		if (disponivel(TipoTributo.YURT) < 1)
 			return false;
 		if (mapa.contarYurtsNoMapa(cor) >= MAX_YURTS)
 			return false;
 		if (!mapa.construirYurt(cor, parada))
 			return false;
-		j.removerRecursos(TipoTributo.YURT, 1);
+		gastar(TipoTributo.YURT, 1);
 		return true;
 	}
 
-	/** Compra uma melhoria por 2 moedas e a coloca na coluna da regiao. */
+	/**
+	 * Compra uma melhoria por 2 moedas (reais ou virtuais) e a coloca na
+	 * coluna da regiao, na cartela do jogador. O tipo da melhoria vem do nome
+	 * da peca (TipoMelhoria); nomes desconhecidos ocupam o espaco sem efeito.
+	 */
 	boolean comprarMelhoria(PecaMelhoria melhoria, Regiao coluna) {
 		if (encerrada || melhoria == null || coluna == null)
 			return false;
 		Jogador j = jogadorAtual();
-		Map<Regiao, Integer> colunas = melhorias.get(getCorAtual());
-		if (colunas.getOrDefault(coluna, 0) >= MAX_MELHORIAS_POR_COLUNA)
+		Cartela cartela = cartelas.get(getCorAtual());
+		ColunaCartela col = ColunaCartela.daRegiao(coluna);
+		if (cartela.getNumMelhorias(col) >= MAX_MELHORIAS_POR_COLUNA)
 			return false;
-		if (!j.removerRecursos(TipoTributo.MOEDA, CUSTO_MELHORIA))
+		if (disponivel(TipoTributo.MOEDA) < CUSTO_MELHORIA)
 			return false;
+		gastar(TipoTributo.MOEDA, CUSTO_MELHORIA);
 		j.adicionarMelhoria(melhoria);
-		colunas.merge(coluna, 1, Integer::sum);
+		cartela.adicionarMelhoria(col, TipoMelhoria.porNome(melhoria.getNome()));
 		return true;
 	}
 
@@ -295,6 +312,96 @@ class Partida {
 		votosNeutra++;
 		if (votosNeutra >= limiteVotos)
 			fimDisparado = true;
+	}
+
+	// =====================================================================
+	// Cartela e Khan (3a iteracao)
+	// =====================================================================
+
+	Cartela getCartela(String cor) {
+		return cartelas.get(cor);
+	}
+
+	/** Coluna ativada pelo jogador da vez neste turno, ou null. */
+	ColunaCartela getColunaAtivada() {
+		return colunaAtivada;
+	}
+
+	boolean isKhanPendente() {
+		return khanPendente;
+	}
+
+	/** Recurso virtual (moeda, espada ou yurt) que ainda resta neste turno. */
+	int getVirtual(TipoTributo t) {
+		return virtuais.containsKey(t) ? virtuais.get(t) : 0;
+	}
+
+	List<String> getTesourosVirtuais() {
+		return new ArrayList<String>(tesourosVirtuais);
+	}
+
+	/**
+	 * Comeca o turno do jogador da vez ativando uma coluna da cartela dele:
+	 * os cavalos viram movimentos, os punhos viram acoes de pegar tributo e
+	 * os icones de moeda, espada, yurt e tesouro viram recursos virtuais.
+	 * So uma coluna por turno; uma coluna ocupada nao pode ser ativada.
+	 */
+	boolean ativarColuna(ColunaCartela coluna) {
+		if (encerrada || coluna == null || colunaAtivada != null)
+			return false;
+		Cartela cartela = cartelas.get(getCorAtual());
+		if (cartela.isOcupada(coluna))
+			return false;
+		AtivacaoColuna a = cartela.ativar(coluna);
+		iniciarTurno(a.getCavalos(), a.getPunhos());
+		colunaAtivada = coluna;
+		khanPendente = a.temKhan();
+		virtuais = a.getVirtuais();
+		tesourosVirtuais = a.getTesourosVirtuais();
+		return true;
+	}
+
+	/**
+	 * Usa o Khan (acao obrigatoria quando a coluna ativada tem o icone dele):
+	 * leva-o a uma provincia do Khan ou a area de melhorias (Mapa.AREA_DE_MELHORIAS).
+	 * Ele nao pode ficar onde ja esta.
+	 */
+	boolean usarKhan(String destino) {
+		if (!podeAgir() || !khanPendente || destino == null)
+			return false;
+		boolean ok;
+		if (destino.equals(Mapa.AREA_DE_MELHORIAS))
+			ok = mapa.moverKhanParaAreaDeMelhorias();
+		else
+			ok = mapa.moverKhanParaProvincia(destino);
+		if (ok)
+			khanPendente = false;
+		return ok;
+	}
+
+	/** O turno so pode ser encerrado depois de usar o Khan, quando a coluna ativada o exige. */
+	boolean podeEncerrarTurno() {
+		return !khanPendente;
+	}
+
+	/** Coloca na coluna branca uma melhoria gratis ganha por linha completa. */
+	boolean colocarMelhoriaGratis(String cor, TipoMelhoria tipo) {
+		Cartela c = cartelas.get(cor);
+		return c != null && c.adicionarMelhoriaGratis(tipo);
+	}
+
+	// recursos reais do jogador + virtuais do turno
+	private int disponivel(TipoTributo t) {
+		return jogadorAtual().getQuantidadeRecurso(t) + getVirtual(t);
+	}
+
+	// gasta primeiro os recursos virtuais, depois os reais
+	private void gastar(TipoTributo t, int quantidade) {
+		int doVirtual = Math.min(getVirtual(t), quantidade);
+		if (doVirtual > 0)
+			virtuais.put(t, getVirtual(t) - doVirtual);
+		if (quantidade - doVirtual > 0)
+			jogadorAtual().removerRecursos(t, quantidade - doVirtual);
 	}
 
 	// =====================================================================

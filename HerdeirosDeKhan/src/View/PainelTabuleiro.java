@@ -15,7 +15,8 @@ import java.awt.image.BufferedImage;
 import java.util.List;
 
 import Model.ModeloApi;
-import Model.ObservadorModelo;
+import Model.ObservadoIF;
+import Model.ObservadorIF;
 
 /**
  * Componente do tabuleiro: desenha a imagem, os tributos, yurts, pinos, o Khan
@@ -24,7 +25,7 @@ import Model.ObservadorModelo;
  * Esta classe so LE o Model. Quem trata os cliques e o Controller
  * (Controller.Main.iniciar recebe este componente e registra o MouseListener).
  */
-public class PainelTabuleiro extends PainelMapa implements ObservadorModelo {
+public class PainelTabuleiro extends PainelMapa implements ObservadorIF {
 	private static final long serialVersionUID = 1L;
 
 	/** Cada jogador tem 12 yurts (mesmo valor de Partida.MAX_YURTS, que nao e publico). */
@@ -38,11 +39,11 @@ public class PainelTabuleiro extends PainelMapa implements ObservadorModelo {
 	public PainelTabuleiro(ModeloApi modelo, String caminhoTabuleiro) {
 		super(caminhoTabuleiro);
 		this.modelo = modelo;
-		modelo.registrarObservador(this);
+		modelo.add(this);
 	}
 
 	@Override
-	public void modeloAlterado() {
+	public void notify(ObservadoIF o) {
 		repaint();
 	}
 

@@ -12,7 +12,7 @@ public class Main {
 	public static final String CAMINHO_TABULEIRO = "imagens/tabuleiro.jpg";
 
 	public static void main(String[] args) {
-		ModeloApi modelo = new ModeloApi();
+		ModeloApi modelo = ModeloApi.getInstance();
 		modelo.criarJogador("Ana", "vermelho", "Tolui");
 		modelo.criarJogador("Bruno", "azul", "Jochi");
 		modelo.criarJogador("Carla", "verde", "Chagatai");

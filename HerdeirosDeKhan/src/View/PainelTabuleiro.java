@@ -15,20 +15,19 @@ import java.awt.image.BufferedImage;
 import java.util.List;
 
 import Model.ModeloApi;
-import Model.ObservadoIF;
 import Model.ObservadorIF;
 
 /**
  * Componente do tabuleiro: desenha a imagem, os tributos, yurts, pinos, o Khan
  * e as cidades conquistadas, tudo com drawImage, e a faixa do jogador da vez.
  *
- * Esta classe so LE o Model. Quem trata os cliques e o Controller
+ * Esta classe só LÊ o Model. Quem trata os cliques é o Controller
  * (Controller.Main.iniciar recebe este componente e registra o MouseListener).
  */
 public class PainelTabuleiro extends PainelMapa implements ObservadorIF {
 	private static final long serialVersionUID = 1L;
 
-	/** Cada jogador tem 12 yurts (mesmo valor de Partida.MAX_YURTS, que nao e publico). */
+	/** Cada jogador tem 12 yurts (mesmo valor de Partida.MAX_YURTS, que não é público). */
 	public static final int MAX_YURTS = 12;
 
 	private static final int ALTURA_FAIXA = 22;
@@ -43,7 +42,7 @@ public class PainelTabuleiro extends PainelMapa implements ObservadorIF {
 	}
 
 	@Override
-	public void notify(ObservadoIF o) {
+	public void notify(Model.ObservadoIF o) {
 		repaint();
 	}
 
@@ -69,7 +68,7 @@ public class PainelTabuleiro extends PainelMapa implements ObservadorIF {
 	}
 
 	// ------------------------------------------------------------------
-	// Elementos do mapa (g ja esta em coordenadas da imagem de referencia)
+	// Elementos do mapa (g já está em coordenadas da imagem de referência)
 	// ------------------------------------------------------------------
 
 	/** Desenha a imagem centrada em (cx, cy), ocupando w x h unidades do tabuleiro. */
@@ -91,7 +90,7 @@ public class PainelTabuleiro extends PainelMapa implements ObservadorIF {
 	}
 
 	/**
-	 * Pecas de tributo de cada provincia: ficam empilhadas sobre o icone impresso
+	 * Peças de tributo de cada província: ficam empilhadas sobre o ícone impresso
 	 * (de 1 a 3), com um selo mostrando a quantidade.
 	 */
 	private void desenharTributos(Graphics2D g) {
@@ -120,7 +119,7 @@ public class PainelTabuleiro extends PainelMapa implements ObservadorIF {
 		}
 	}
 
-	/** Tipo de tributo da provincia: usa o tipo do Model e, se nao reconhecer, o prefixo do nome. */
+	/** Tipo de tributo da província: usa o tipo do Model e, se não reconhecer, o prefixo do nome. */
 	private String tipoTributo(String provincia) {
 		Object t = modelo.getTipoTributo(provincia);
 		String r = classificar(t == null ? null : t.toString());
@@ -142,7 +141,7 @@ public class PainelTabuleiro extends PainelMapa implements ObservadorIF {
 		return null;
 	}
 
-	/** O Khan e um pino branco, igual aos dos jogadores, sobre a cabeca impressa onde ele esta. */
+	/** O Khan é um pino branco, igual aos dos jogadores, sobre a cabeça impressa onde ele está. */
 	private void desenharKhan(Graphics2D g) {
 		String pos = modelo.getPosicaoKhan();
 		if (pos == null)
@@ -161,7 +160,7 @@ public class PainelTabuleiro extends PainelMapa implements ObservadorIF {
 				continue;
 
 			boolean karakorum = parada.equals("Karakorum");
-			// paradas duplas: cada pino/yurt vai sobre um dos 2 circulos impressos (nao entre eles)
+			// paradas duplas: cada pino/yurt vai sobre um dos 2 círculos impressos (não entre eles)
 			Point[] circulos = PosicoesDuplas.circulos(parada);
 
 			List<String> peoes = modelo.getPeoesNaParada(parada);
@@ -209,7 +208,7 @@ public class PainelTabuleiro extends PainelMapa implements ObservadorIF {
 	// Faixa do jogador da vez (em pixels do painel, sobre a borda de cima do tabuleiro)
 	// ------------------------------------------------------------------
 
-	/** Quantos yurts do jogador ja estao no mapa (em paradas ou no centro de cidades conquistadas). */
+	/** Quantos yurts do jogador já estão no mapa (em paradas ou no centro de cidades conquistadas). */
 	private int yurtsNoMapa(String cor) {
 		int n = 0;
 		for (String parada : modelo.getParadas())
@@ -224,8 +223,8 @@ public class PainelTabuleiro extends PainelMapa implements ObservadorIF {
 
 	/**
 	 * Indica o jogador da vez pela cor da faixa e por texto, direto no tabuleiro
-	 * (sem JOptionPane), e mostra as 12 pecas de yurt dele: cheias = na reserva,
-	 * apagadas = ja colocadas no mapa.
+	 * (sem JOptionPane), e mostra as 12 peças de yurt dele: cheias = na reserva,
+	 * apagadas = já colocadas no mapa.
 	 */
 	private void desenharFaixaDaVez(Graphics2D g) {
 		if (!modelo.isPartidaIniciada() || escala <= 0)
@@ -237,7 +236,7 @@ public class PainelTabuleiro extends PainelMapa implements ObservadorIF {
 		Color texto = Cores.textoSobre(fundo);
 		int x0 = origemX;
 		int y0 = origemY;
-		int w = getWidth();
+		int w = larguraDesenhada;
 
 		g.setColor(new Color(fundo.getRed(), fundo.getGreen(), fundo.getBlue(), 238));
 		g.fillRect(x0, y0, w, ALTURA_FAIXA);
@@ -255,7 +254,7 @@ public class PainelTabuleiro extends PainelMapa implements ObservadorIF {
 				+ "   |   Movimentos restantes: " + modelo.getMovimentosRestantes() + votos, x0 + 10,
 				y0 + ALTURA_FAIXA / 2 + 5);
 
-		// reserva de yurts: 12 pecas redondas da cor do jogador
+		// reserva de yurts: 12 peças redondas da cor do jogador
 		int noMapa = Math.min(MAX_YURTS, yurtsNoMapa(cor));
 		int reserva = MAX_YURTS - noMapa;
 		int passo = DIAMETRO_RESERVA + 3;

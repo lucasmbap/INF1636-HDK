@@ -30,10 +30,12 @@ public final class Pecas {
 	public static final int YURT_D = 44;
 	public static final int YURT_CIDADE_D = 84;
 	public static final int TRIBUTO_D = 72;
+	public static final int TESOURO_D = 50;
 
 	private static final Map<Long, BufferedImage> peoes = new HashMap<Long, BufferedImage>();
 	private static final Map<Long, BufferedImage> yurts = new HashMap<Long, BufferedImage>();
 	private static final Map<String, BufferedImage> tributos = new HashMap<String, BufferedImage>();
+	private static final Map<String, BufferedImage> tesouros = new HashMap<String, BufferedImage>();
 
 	private Pecas() {
 	}
@@ -81,6 +83,50 @@ public final class Pecas {
 			img = origem == null ? discoSubstituto(d) : circular(origem, d);
 			tributos.put(k, img);
 		}
+		return img;
+	}
+
+	/** Tesouro (gado, especiaria, pele, ferro ou seda): disco colorido com a inicial, enquanto nao ha imagens. */
+	public static BufferedImage tesouro(String tipo, double escala) {
+		int d = px(TESOURO_D, escala);
+		String k = tipo + "@" + d;
+		BufferedImage img = tesouros.get(k);
+		if (img == null) {
+			img = criarTesouro(tipo, d);
+			tesouros.put(k, img);
+		}
+		return img;
+	}
+
+	private static BufferedImage criarTesouro(String tipo, int d) {
+		String t = tipo == null ? "?" : tipo.toLowerCase();
+		Color cor = new Color(130, 130, 130);
+		if (t.startsWith("gado"))
+			cor = new Color(150, 95, 50);
+		else if (t.startsWith("especia"))
+			cor = new Color(225, 120, 30);
+		else if (t.startsWith("pele"))
+			cor = new Color(205, 175, 135);
+		else if (t.startsWith("ferro"))
+			cor = new Color(85, 95, 110);
+		else if (t.startsWith("seda"))
+			cor = new Color(135, 85, 175);
+		BufferedImage img = novaImagem(d, d);
+		Graphics2D g = img.createGraphics();
+		qualidade(g);
+		float borda = Math.max(1.2f, d * 0.08f);
+		Ellipse2D disco = new Ellipse2D.Double(borda / 2, borda / 2, d - borda, d - borda);
+		g.setColor(cor);
+		g.fill(disco);
+		g.setColor(Color.BLACK);
+		g.setStroke(new BasicStroke(borda));
+		g.draw(disco);
+		g.setColor(Cores.textoSobre(cor));
+		g.setFont(new java.awt.Font("SansSerif", java.awt.Font.BOLD, Math.max(8, d * 5 / 10)));
+		java.awt.FontMetrics fm = g.getFontMetrics();
+		String letra = t.isEmpty() ? "?" : t.substring(0, 1).toUpperCase();
+		g.drawString(letra, (d - fm.stringWidth(letra)) / 2, (d + fm.getAscent()) / 2 - Math.max(1, d / 12));
+		g.dispose();
 		return img;
 	}
 

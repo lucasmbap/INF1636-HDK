@@ -12,21 +12,28 @@ import javax.swing.JPanel;
  * Base do painel que mostra o tabuleiro. Desenha a imagem somente com
  * Graphics2D.drawImage(), escalada para caber no painel e centralizada.
  *
- * O tabuleiro e sempre tratado no tamanho de referencia de CoordenadasMapa
- * (LARGURA_REF x ALTURA_REF), qualquer que seja a resolucao do arquivo de
- * imagem. Assim as coordenadas de CoordenadasMapa valem sempre.
+ * ATENCAO: o Controller (ControladorJogo.paradaNoClique) calcula em qual parada
+ * o jogador clicou com a MESMA conta usada aqui:
+ *   escala  = min(largura / LARGURA_REF, altura / ALTURA_REF)
+ *   origemX = (largura - LARGURA_REF * escala) / 2
+ *   origemY = (altura  - ALTURA_REF  * escala) / 2
+ * Por isso o tabuleiro ocupa o componente inteiro, sem margens. Se esta conta
+ * mudar aqui, o clique para de bater com o desenho.
+ *
+ * O tabuleiro e sempre tratado no tamanho de referencia de CoordenadasMapa,
+ * qualquer que seja a resolucao do arquivo de imagem.
  */
 public abstract class PainelMapa extends JPanel {
 	private static final long serialVersionUID = 1L;
 
 	protected final BufferedImage mapa;
-	/** Altura (em pixels do painel) reservada no topo para a faixa do jogador da vez. */
-	protected int margemTopo = 0;
 
 	/** Posicao e escala com que o tabuleiro foi desenhado no ultimo paintComponent. */
 	protected int origemX = 0;
 	protected int origemY = 0;
 	protected double escala = 0;
+	protected int larguraDesenhada = 0;
+	protected int alturaDesenhada = 0;
 
 	private BufferedImage mapaEscalado = null;
 
@@ -45,36 +52,27 @@ public abstract class PainelMapa extends JPanel {
 		g.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
 		g.setRenderingHint(RenderingHints.KEY_TEXT_ANTIALIASING, RenderingHints.VALUE_TEXT_ANTIALIAS_ON);
 		g.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_BILINEAR);
-		if (mapa == null) {
+		if (mapa == null || getWidth() <= 0 || getHeight() <= 0) {
 			g.setColor(Color.WHITE);
-			g.drawString("Imagem do tabuleiro nao encontrada.", 20, margemTopo + 40);
+			g.drawString("Imagem do tabuleiro nao encontrada.", 20, 40);
 			g.dispose();
 			escala = 0;
 			return null;
 		}
-		int disponivelW = getWidth();
-		int disponivelH = getHeight() - margemTopo;
-		double e = Math.min((double) disponivelW / CoordenadasMapa.LARGURA_REF,
-				(double) disponivelH / CoordenadasMapa.ALTURA_REF);
-		int w = Math.max(1, (int) Math.round(CoordenadasMapa.LARGURA_REF * e));
-		int h = Math.max(1, (int) Math.round(CoordenadasMapa.ALTURA_REF * e));
-		origemX = (disponivelW - w) / 2;
-		origemY = margemTopo + (disponivelH - h) / 2;
-		escala = (double) w / CoordenadasMapa.LARGURA_REF;
+		escala = Math.min((double) getWidth() / CoordenadasMapa.LARGURA_REF,
+				(double) getHeight() / CoordenadasMapa.ALTURA_REF);
+		larguraDesenhada = Math.max(1, (int) Math.round(CoordenadasMapa.LARGURA_REF * escala));
+		alturaDesenhada = Math.max(1, (int) Math.round(CoordenadasMapa.ALTURA_REF * escala));
+		origemX = (getWidth() - larguraDesenhada) / 2;
+		origemY = (getHeight() - alturaDesenhada) / 2;
 
-		if (mapaEscalado == null || mapaEscalado.getWidth() != w || mapaEscalado.getHeight() != h)
-			mapaEscalado = Imagens.redimensionar(mapa, w, h);
+		if (mapaEscalado == null || mapaEscalado.getWidth() != larguraDesenhada
+				|| mapaEscalado.getHeight() != alturaDesenhada)
+			mapaEscalado = Imagens.redimensionar(mapa, larguraDesenhada, alturaDesenhada);
 		g.drawImage(mapaEscalado, origemX, origemY, null);
 
 		g.translate(origemX, origemY);
 		g.scale(escala, escala);
 		return g;
-	}
-
-	/** Nome da parada sob o ponto (x, y) do painel, ou null. */
-	protected String paradaEm(int x, int y) {
-		if (escala <= 0)
-			return null;
-		return CoordenadasMapa.paradaEm(x, y, origemX, origemY, escala);
 	}
 }

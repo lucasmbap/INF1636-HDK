@@ -28,6 +28,7 @@ class Mapa {
 	private Map<String, Parada> paradas = new HashMap<String, Parada>();
 	private Map<String, Provincia> provincias = new HashMap<String, Provincia>();
 	private Map<String, Cidade> cidades = new HashMap<String, Cidade>();
+	private PecaKarakorum pecaKarakorum;
 
 	// parada -> paradas ligadas a ela por uma rota
 	private Map<String, List<String>> rotas = new HashMap<String, List<String>>();
@@ -144,6 +145,24 @@ class Mapa {
 
 	boolean existeParada(String nome) {
 		return paradas.containsKey(nome);
+	}
+
+	boolean temConselheiro(String parada) {
+		Parada p = paradas.get(parada);
+		return p != null && p.temConselheiro();
+	}
+
+	boolean configurarPecaKarakorum(PecaKarakorum peca) {
+		if (peca == null || pecaKarakorum != null)
+			return false;
+		pecaKarakorum = peca;
+		return true;
+	}
+
+	List<String> getRequisitosKarakorum() {
+		return pecaKarakorum == null
+				? new ArrayList<String>()
+				: pecaKarakorum.getTesourosExigidos();
 	}
 
 	List<String> getNomesParadas() {

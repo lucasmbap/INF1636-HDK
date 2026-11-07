@@ -2,6 +2,7 @@ package Model;
 
 import java.util.ArrayDeque;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.Deque;
 import java.util.HashMap;
 import java.util.List;
@@ -44,6 +45,7 @@ public final class ModeloApi implements ObservadoIF {
 	private Mapa mapa;
 	private List<Jogador> ordemJogadores; // ordem dos turnos
 	private Partida partida; // criada em iniciarPartida()
+	private boolean influenciaPontuada;
 	private final List<ObservadorIF> observadores = new ArrayList<ObservadorIF>();
 
 	private ModeloApi() {
@@ -72,6 +74,7 @@ public final class ModeloApi implements ObservadoIF {
 		mapa = MapaOficial.criar();
 		ordemJogadores = new ArrayList<Jogador>();
 		partida = null;
+		influenciaPontuada = false;
 	}
 
 	public int criarJogador(String nome, String cor, String herdeiro) {
@@ -227,7 +230,6 @@ public final class ModeloApi implements ObservadoIF {
 	// ordem em que as cidades sao reveladas e tipos de tesouro (8 de cada)
 	private static final String[] ORDEM_CIDADES = { "Kiev", "Pequim", "Bagda", "Moscou", "Kaesong",
 			"Samarcanda", "Sarai", "Cantao", "Cabul" };
-	private static final String[] TIPOS_TESOURO = { "gado", "especiaria", "pele", "ferro", "seda" };
 	private static final int CIDADES_INICIAIS = 3;
 	private static final int TESOUROS_POR_CIDADE = 4;
 
@@ -243,9 +245,14 @@ public final class ModeloApi implements ObservadoIF {
 		for (Jogador j : ordemJogadores)
 			if (Cartela.nomeOficial(j.getHerdeiro()) == null)
 				return false; // cada jogador precisa de um herdeiro com cartela
+		List<String> pecasKarakorum = new ArrayList<String>(PecaKarakorum.TIPOS_TESOURO);
+		Collections.shuffle(pecasKarakorum);
+		if (!mapa.configurarPecaKarakorum(new PecaKarakorum(pecasKarakorum.subList(0, 3)))
+				|| mapa.getRequisitosKarakorum().size() != 3)
+			return false;
 		Deque<Tesouro> pilha = new ArrayDeque<Tesouro>();
 		for (int i = 0; i < 8; i++)
-			for (String t : TIPOS_TESOURO)
+			for (String t : PecaKarakorum.TIPOS_TESOURO)
 				pilha.add(new Tesouro(t));
 		Deque<String> fechadas = new ArrayDeque<String>();
 		for (int i = 0; i < ORDEM_CIDADES.length; i++) {
@@ -338,10 +345,26 @@ public final class ModeloApi implements ObservadoIF {
 		if (partida == null || partida.isEncerrada() || !partida.podeEncerrarTurno())
 			return false;
 		partida.encerrarTurno();
-		if (!partida.isEncerrada())
+		if (!partida.isEncerrada()) {
 			partida.iniciarTurno(0, 0);
+		} else {
+			partida.pontuarInfluencia();
+			influenciaPontuada = true;
+		}
 		notificar();
 		return true;
+	}
+
+	/** Indica se a ultima rodada terminou e o vencedor pode ser apurado. */
+	public boolean isPartidaEncerrada() {
+		return partida != null && partida.isEncerrada();
+	}
+
+	/** Cores dos vencedores, apos o fim da partida; lista vazia antes do fim. */
+	public List<String> getVencedores() {
+		if (!isPartidaEncerrada() || !influenciaPontuada)
+			return new ArrayList<String>();
+		return new ArrayList<String>(partida.vencedores());
 	}
 
 	/** Paradas onde o jogador da vez esteve neste turno. */
@@ -349,6 +372,33 @@ public final class ModeloApi implements ObservadoIF {
 		if (partida == null)
 			return new ArrayList<String>();
 		return partida.getParadasVisitadas();
+	}
+
+	/** Conselheiros visitados durante este turno, nos quais o jogador pode entregar tesouros. */
+	public List<String> getConselheirosVisitadosNoTurno() {
+		if (partida == null)
+			return new ArrayList<String>();
+		return partida.getConselheirosVisitados();
+	}
+
+	/** Requisitos de entrega do conselheiro; "*" representa qualquer tesouro. */
+	public List<String> getRequisitosConselheiro(String parada) {
+		if (partida == null)
+			return new ArrayList<String>();
+		return partida.getRequisitosConselheiro(parada);
+	}
+
+	/** Tesouros exigidos pela peca de Karakorum sorteada para esta partida. */
+	public List<String> getTesourosExigidosEmKarakorum() {
+		return mapa.getRequisitosKarakorum();
+	}
+
+	/** Entrega tesouros ao conselheiro visitado e aplica votos e bonus. */
+	public boolean entregarTesourosConselheiro(String parada, List<String> tesouros) {
+		if (partida == null || !partida.entregarTesourosConselheiro(parada, tesouros))
+			return false;
+		notificar();
+		return true;
 	}
 
 	/** Parada onde esta o peao da cor indicada, ou null. */

@@ -22,6 +22,9 @@ public class CoordenadasMapa {
 	private static Map<String, Point> provincias = new HashMap<String, Point>();
 	private static Map<String, Point> cidades = new HashMap<String, Point>();
 	private static Map<String, Point> khan = new HashMap<String, Point>();
+	private static final int RAIO_PROVINCIA = 85;
+	private static final int RAIO_CIDADE = 125;
+	private static final int RAIO_KHAN = 90;
 
 	static {
 		// paradas (centro do circulo; nas duplas, o meio entre os 2 circulos)
@@ -119,18 +122,47 @@ public class CoordenadasMapa {
 	 * estiver sobre nenhuma parada.
 	 */
 	public static String paradaEm(int xTela, int yTela, int origemX, int origemY, double escala) {
+		return pontoMaisProximo(xTela, yTela, origemX, origemY, escala, paradas, RAIO_PARADA);
+	}
+
+	/** Converte um clique para a provincia mais proxima, ou null se nao houver alvo. */
+	public static String provinciaEm(int xTela, int yTela, int origemX, int origemY, double escala) {
+		return pontoMaisProximo(xTela, yTela, origemX, origemY, escala, provincias, RAIO_PROVINCIA);
+	}
+
+	/** Converte um clique para a cidade mais proxima, ou null se nao houver alvo. */
+	public static String cidadeEm(int xTela, int yTela, int origemX, int origemY, double escala) {
+		return pontoMaisProximo(xTela, yTela, origemX, origemY, escala, cidades, RAIO_CIDADE);
+	}
+
+	/** Converte um clique para um destino do Khan, ou null se nao houver alvo. */
+	public static String destinoKhanEm(int xTela, int yTela, int origemX, int origemY, double escala,
+			java.util.List<String> destinos) {
+		Map<String, Point> pontos = new HashMap<String, Point>();
+		for (String destino : destinos) {
+			Point ponto = khan.get(destino);
+			if (ponto != null)
+				pontos.put(destino, ponto);
+		}
+		return pontoMaisProximo(xTela, yTela, origemX, origemY, escala, pontos, RAIO_KHAN);
+	}
+
+	private static String pontoMaisProximo(int xTela, int yTela, int origemX, int origemY, double escala,
+			Map<String, Point> pontos, int raio) {
+		if (escala <= 0)
+			return null;
 		double x = (xTela - origemX) / escala;
 		double y = (yTela - origemY) / escala;
-		String maisProxima = null;
-		double menorDist = RAIO_PARADA;
-		for (Map.Entry<String, Point> e : paradas.entrySet()) {
-			double d = e.getValue().distance(x, y);
-			if (d <= menorDist) {
-				menorDist = d;
-				maisProxima = e.getKey();
+		String maisProximo = null;
+		double menorDist = raio;
+		for (Map.Entry<String, Point> e : pontos.entrySet()) {
+			double distancia = e.getValue().distance(x, y);
+			if (distancia <= menorDist) {
+				menorDist = distancia;
+				maisProximo = e.getKey();
 			}
 		}
-		return maisProxima;
+		return maisProximo;
 	}
 
 	private static Point copia(Point p) {

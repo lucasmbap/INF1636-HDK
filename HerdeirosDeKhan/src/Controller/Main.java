@@ -10,6 +10,7 @@ import javax.swing.JFrame;
 import javax.swing.SwingUtilities;
 
 import Model.ModeloApi;
+import View.JanelaJogador;
 
 /**
  * Ponto de integracao da aplicacao. A View fornece o componente do tabuleiro.
@@ -38,6 +39,13 @@ public final class Main {
 	 * Deve ser chamado na thread de eventos do Swing, depois de iniciar a partida.
 	 */
 	public static JFrame abrir(ModeloApi modelo, JComponent tabuleiro) {
+		return abrir(modelo, tabuleiro, null);
+	}
+
+	/**
+	 * Abre o tabuleiro e conecta o controlador tambem a cartela do jogador.
+	 */
+	public static JFrame abrir(ModeloApi modelo, JComponent tabuleiro, JanelaJogador janelaJogador) {
 		if (!SwingUtilities.isEventDispatchThread())
 			throw new IllegalStateException("Main.abrir deve ser chamado na thread de eventos do Swing.");
 		if (modelo == null || tabuleiro == null)
@@ -45,6 +53,8 @@ public final class Main {
 
 		PainelControle controles = new PainelControle();
 		final ControladorJogo controlador = new ControladorJogo(modelo, tabuleiro, controles);
+		if (janelaJogador != null)
+			janelaJogador.setOuvinte(controlador);
 
 		JFrame janela = new JFrame("Herdeiros de Khan");
 		janela.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
@@ -52,6 +62,8 @@ public final class Main {
 			@Override
 			public void windowClosed(WindowEvent evento) {
 				controlador.encerrar();
+				if (janelaJogador != null)
+					janelaJogador.dispose();
 			}
 		});
 		janela.setResizable(false);

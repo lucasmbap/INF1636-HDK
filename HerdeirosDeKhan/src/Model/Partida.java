@@ -3,8 +3,10 @@ package Model;
 import java.util.ArrayList;
 import java.util.Deque;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.function.ToIntFunction;
 
 /**
@@ -27,6 +29,7 @@ class Partida {
 	private final Mapa mapa;
 	private final Map<String, Jogador> jogadores = new HashMap<String, Jogador>();
 	private final List<String> ordem = new ArrayList<String>();
+	private final Set<String> conselheirosComBonus = new HashSet<String>();
 	private final Deque<String> cidadesFechadas;
 	private final Deque<Tesouro> pilhaTesouros;
 
@@ -208,6 +211,66 @@ class Partida {
 	/** Paradas onde o jogador atual esteve de fato neste turno (copia). */
 	List<String> getParadasVisitadas() {
 		return new ArrayList<String>(visitadas);
+	}
+
+	List<String> getConselheirosVisitados() {
+		List<String> resultado = new ArrayList<String>();
+		for (String parada : visitadas)
+			if (mapa.temConselheiro(parada))
+				resultado.add(parada);
+		return resultado;
+	}
+
+	List<String> getRequisitosConselheiro(String parada) {
+		if (!mapa.temConselheiro(parada))
+			return new ArrayList<String>();
+		switch (parada) {
+		case "R2":
+			return List.of("seda", "seda");
+		case "R11":
+			return List.of("ferro", "ferro");
+		case "C5":
+			return List.of("gado", "gado");
+		case "C10":
+			return List.of("*", "*", "*");
+		case "P1":
+			return List.of("pele", "pele");
+		case "P8":
+			return List.of("especiaria", "especiaria");
+		case Mapa.KARAKORUM:
+			return mapa.getRequisitosKarakorum();
+		default:
+			return new ArrayList<String>();
+		}
+	}
+
+	boolean entregarTesourosConselheiro(String parada, List<String> tesouros) {
+		if (!podeAgir() || parada == null || tesouros == null || !visitadas.contains(parada))
+			return false;
+		List<String> requisitos = getRequisitosConselheiro(parada);
+		if (requisitos.isEmpty() || tesouros.size() != requisitos.size())
+			return false;
+		if (requisitos.contains("*")) {
+			for (String tipo : tesouros)
+				if (tipo == null || tipo.isBlank())
+					return false;
+		} else if (!requisitos.equals(tesouros)) {
+			return false;
+		}
+
+		Jogador jogador = jogadorAtual();
+		List<String> disponiveis = new ArrayList<String>(jogador.getNomesTesouros());
+		for (String tesouro : tesouros)
+			if (tesouro == null || !disponiveis.remove(tesouro))
+				return false;
+		for (String tesouro : tesouros)
+			jogador.removerTesouro(new Tesouro(tesouro));
+		int votos = "Karakorum".equals(parada) ? 2 : 1;
+		for (int i = 0; i < votos; i++)
+			ganharVoto(getCorAtual());
+		if (conselheirosComBonus.add(parada))
+			jogador.adicionarRecursos(TipoTributo.MOEDA, 1);
+		return true;
 	}
 
 	/** Cores dos jogadores na ordem dos turnos (copia). */

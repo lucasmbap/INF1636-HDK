@@ -158,13 +158,14 @@ public class PartidaTest {
 	@Test
 	public void melhoriaCustaDuasMoedasELimitaQuatroPorColuna() {
 		ana.adicionarRecursos(TipoTributo.MOEDA, 1);
-		assertFalse(partida.comprarMelhoria(new PecaMelhoria("m0", "e", "c"), Regiao.CHINA));
+		encherArea(ColunaCartela.VERMELHA);
+		assertFalse(partida.comprarMelhoria(4, ColunaCartela.VERMELHA));
 		assertEquals(0, ana.getMelhorias().size());
 
 		ana.adicionarRecursos(TipoTributo.MOEDA, 9); // total 10
 		for (int i = 1; i <= 4; i++)
-			assertTrue(partida.comprarMelhoria(new PecaMelhoria("m" + i, "e", "c"), Regiao.CHINA));
-		assertFalse(partida.comprarMelhoria(new PecaMelhoria("m5", "e", "c"), Regiao.CHINA));
+			assertTrue(partida.comprarMelhoria(4, ColunaCartela.VERMELHA));
+		assertFalse(partida.comprarMelhoria(4, ColunaCartela.VERMELHA));
 		assertEquals(2, ana.getQuantidadeRecurso(TipoTributo.MOEDA));
 		assertEquals(4, partida.getMelhoriasNaColuna("vermelho", Regiao.CHINA));
 	}
@@ -190,12 +191,14 @@ public class PartidaTest {
 		mapa.construirYurt("vermelho", "B");
 		mapa.construirYurt("azul", "B");
 
+		encherArea(ColunaCartela.AMARELA);
 		ana.adicionarRecursos(TipoTributo.MOEDA, 6);
 		for (int i = 0; i < 3; i++)
-			partida.comprarMelhoria(new PecaMelhoria("m" + i, "e", "c"), Regiao.RUSSIA);
+			partida.comprarMelhoria(4, ColunaCartela.AMARELA);
 		partida.encerrarTurno();
+		partida.iniciarTurno(0, 0);
 		bruno.adicionarRecursos(TipoTributo.MOEDA, 2);
-		partida.comprarMelhoria(new PecaMelhoria("x", "e", "c"), Regiao.RUSSIA);
+		partida.comprarMelhoria(4, ColunaCartela.AMARELA);
 
 		for (int i = 0; i < 10; i++)
 			partida.ganharVoto("azul");
@@ -236,5 +239,48 @@ public class PartidaTest {
 		terminarJogo();
 		partida.pontuarInfluencia();
 		assertEquals(List.of("vermelho"), partida.vencedores());
+	}
+
+	@Test
+	public void melhoriaGratis_vemDaAreaSemRegraDeCor() {
+		encherArea(ColunaCartela.VERMELHA);
+		completarUmaLinha("vermelho");
+		assertTrue("Peca vermelha vai para a coluna branca", partida.colocarMelhoriaGratis("vermelho", 4));
+		assertEquals("Uma melhoria na coluna branca", 1,
+				partida.getCartela("vermelho").getNumMelhorias(ColunaCartela.BRANCA));
+	}
+
+	@Test
+	public void melhoriaGratis_semLinhaCompleta_recusada() {
+		encherArea(ColunaCartela.VERMELHA);
+		assertFalse("Sem linha completa nao ha melhoria gratis", partida.colocarMelhoriaGratis("vermelho", 4));
+	}
+
+	@Test
+	public void cartaLinhaCompleta_naoContaMelhoriaInicialDoJochi() {
+		partida.getCartela("azul").colocarMelhoriaInicial(TipoMelhoria.MOEDA);
+		partida.encerrarTurno(); // vez do Bruno (Jochi)
+		partida.iniciarTurno(0, 0);
+		partida.restaurarCartasAbertas(List.of("linha_completa"), new java.util.HashMap<String, Integer>());
+		partida.verificarCartasAbertas();
+		assertEquals("A melhoria inicial nao e uma linha completa", 0, bruno.getVotos());
+	}
+
+	private void completarUmaLinha(String cor) {
+		Cartela ct = partida.getCartela(cor);
+		ct.adicionarMelhoria(ColunaCartela.VERMELHA, TipoMelhoria.ESPADA);
+		ct.adicionarMelhoria(ColunaCartela.VERDE, TipoMelhoria.YURT);
+		ct.adicionarMelhoria(ColunaCartela.AMARELA, TipoMelhoria.PUNHO);
+	}
+
+	// auxiliar: area de melhorias com 5 pecas de punho da cor indicada e mais 5 na pilha
+	private void encherArea(ColunaCartela cor) {
+		MelhoriaColorida[] espacos = new MelhoriaColorida[AreaDeMelhorias.ESPACOS];
+		List<MelhoriaColorida> resto = new ArrayList<MelhoriaColorida>();
+		for (int i = 0; i < espacos.length; i++) {
+			espacos[i] = new MelhoriaColorida(TipoMelhoria.PUNHO, cor);
+			resto.add(new MelhoriaColorida(TipoMelhoria.PUNHO, cor));
+		}
+		partida.getArea().restaurar(espacos, resto);
 	}
 }

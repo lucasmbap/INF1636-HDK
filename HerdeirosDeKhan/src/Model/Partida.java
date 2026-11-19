@@ -7,7 +7,6 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.function.ToIntFunction;
 
 /**
  * Regras da partida: turno, movimento, tributos, ataque a cidades, yurts,
@@ -19,6 +18,13 @@ class Partida {
 	static final int MAX_YURTS = 12;
 	static final int CUSTO_MELHORIA = 2;
 	static final int MAX_MELHORIAS_POR_COLUNA = 4;
+
+	// herdeiros com habilidade especial (texto impresso em cada cartela)
+	static final String ALTANI = "Altani";
+	static final String CHAGATAI = "Chagatai";
+	static final String JOCHI = "Jochi";
+	static final String OGEDEI = "Ogedei";
+	static final String TOLUI = "Tolui";
 
 	// indice = numero de jogadores (2 a 5): 10 / 14 / 16 / 17 votos
 	private static final int[] LIMITE_VOTOS = { 0, 0, 10, 14, 16, 17 };
@@ -61,6 +67,12 @@ class Partida {
 	private Map<TipoTributo, Integer> virtuais = new HashMap<TipoTributo, Integer>();
 	private List<String> tesourosVirtuais = new ArrayList<String>();
 
+	// area de melhorias e habilidades dos herdeiros (4a iteracao)
+	private AreaDeMelhorias area;
+	private boolean habilidadeUsadaNoTurno = false; // Chagatai e Ogedei: 1x por turno
+	private final Map<String, Integer> peaoEscolhido = new HashMap<String, Integer>(); // Altani: 1 ou 2
+	private final Map<String, List<MelhoriaColorida>> melhoriasIniciaisJochi = new HashMap<String, List<MelhoriaColorida>>();
+
 	/**
 	 * @param jogadoresEmOrdem  ordem de jogo (o primeiro e quem comeca)
 	 * @param cidadesFechadas   cidades ainda nao rereveladas, na ordem da pilha
@@ -88,6 +100,47 @@ class Partida {
 		List<String> todas = new ArrayList<String>(java.util.Arrays.asList(TODAS_CARTAS_ABERTAS));
 		java.util.Collections.shuffle(todas);
 		this.cartasAbertas = new ArrayList<String>(todas.subList(0, 4));
+		this.area = AreaDeMelhorias.nova();
+		prepararHabilidades();
+	}
+
+	/**
+	 * Preparacao que depende do herdeiro (texto das cartelas):
+	 * - Altani: um segundo peao, tambem em Karakorum;
+	 * - Tolui: 1 yurt em Karakorum, que nao pertence a nenhuma regiao;
+	 * - Jochi: tira 2 melhorias da pilha e depois escolhe 1 para a coluna branca.
+	 */
+	private void prepararHabilidades() {
+		for (String cor : ordem) {
+			String h = herdeiro(cor);
+			if (h.equals(ALTANI)) {
+				mapa.colocarPeao(cor + Mapa.SUFIXO_SEGUNDO_PEAO, Mapa.KARAKORUM);
+				peaoEscolhido.put(cor, 1);
+			} else if (h.equals(TOLUI)) {
+				mapa.colocarYurtEmKarakorum(cor);
+			} else if (h.equals(JOCHI)) {
+				List<MelhoriaColorida> duas = new ArrayList<MelhoriaColorida>();
+				for (int i = 0; i < 2; i++) {
+					MelhoriaColorida m = area.retirar(-1);
+					if (m != null)
+						duas.add(m);
+				}
+				melhoriasIniciaisJochi.put(cor, duas);
+			}
+		}
+	}
+
+	/** Herdeiro do jogador (nome oficial da cartela). */
+	String herdeiro(String cor) {
+		Cartela c = cartelas.get(cor);
+		return c == null ? "" : c.getHerdeiro();
+	}
+
+	/** Chave do peao que joga neste turno: a cor, ou a cor + "#2" se a Altani escolheu o 2o peao. */
+	String peaoDaVez() {
+		String cor = getCorAtual();
+		Integer n = peaoEscolhido.get(cor);
+		return (n != null && n == 2) ? cor + Mapa.SUFIXO_SEGUNDO_PEAO : cor;
 	}
 
 	// =====================================================================
@@ -148,7 +201,7 @@ class Partida {
 		this.punhos = punhos;
 		this.turnoAtivo = true;
 		this.visitadas = new ArrayList<String>();
-		this.visitadas.add(mapa.getPosicao(getCorAtual()));
+		this.visitadas.add(mapa.getPosicao(peaoDaVez()));
 		this.tesourosTomadosNoTurno = new HashMap<String, Integer>();
 		this.colunaAtivada = null;
 		this.khanPendente = false;
@@ -163,6 +216,7 @@ class Partida {
 	void encerrarTurno() {
 		cartelas.get(getCorAtual()).fimDoTurno();
 		turnoAtivo = false;
+		habilidadeUsadaNoTurno = false;
 		verificarFimPorCidades();
 		indiceAtual++;
 		if (indiceAtual == ordem.size()) {
@@ -189,12 +243,12 @@ class Partida {
 	boolean mover(List<String> caminho) {
 		if (!podeAgir())
 			return false;
-		String cor = getCorAtual();
-		int custo = mapa.custoDoCaminho(cor, caminho);
+		String peao = peaoDaVez();
+		int custo = mapa.custoDoCaminho(peao, caminho);
 		if (custo < 0 || custo > movimentos)
 			return false;
-		List<String> novas = mapa.getParadasVisitadas(cor, caminho); // antes de mover
-		mapa.moverPeao(cor, caminho, movimentos);
+		List<String> novas = mapa.getParadasVisitadas(peao, caminho); // antes de mover
+		mapa.moverPeao(peao, caminho, movimentos);
 		movimentos -= custo;
 		for (String p : novas)
 			if (!visitadas.contains(p))
@@ -211,7 +265,7 @@ class Partida {
 	boolean moverPara(String destino) {
 		if (!podeAgir())
 			return false;
-		List<String> caminho = mapa.melhorCaminho(getCorAtual(), destino);
+		List<String> caminho = mapa.melhorCaminho(peaoDaVez(), destino);
 		if (caminho.isEmpty())
 			return false;
 		return mover(caminho);
@@ -341,9 +395,16 @@ class Partida {
 		mapa.revelarCidade(proxima, novos);
 	}
 
-	/** Constroi um yurt numa parada onde o peao esteve de fato neste turno. */
+	/**
+	 * Constroi um yurt numa parada onde o peao esteve de fato neste turno. O
+	 * Tolui tambem pode construir nas paradas adjacentes ao peao dele.
+	 */
 	boolean construirYurt(String parada) {
-		if (!podeAgir() || !visitadas.contains(parada))
+		if (!podeAgir() || parada == null)
+			return false;
+		boolean aoLado = herdeiro(getCorAtual()).equals(TOLUI)
+				&& mapa.saoAdjacentes(mapa.getPosicao(peaoDaVez()), parada);
+		if (!visitadas.contains(parada) && !aoLado)
 			return false;
 		String cor = getCorAtual();
 		Jogador j = jogadorAtual();
@@ -358,23 +419,32 @@ class Partida {
 	}
 
 	/**
-	 * Compra uma melhoria por 2 moedas (reais ou virtuais) e a coloca na
-	 * coluna da regiao, na cartela do jogador. O tipo da melhoria vem do nome
-	 * da peca (TipoMelhoria); nomes desconhecidos ocupam o espaco sem efeito.
+	 * Compra por 2 moedas (reais ou virtuais) a melhoria de um espaco da area
+	 * (0 a 4) ou a do topo da pilha (espaco -1) e a coloca na coluna indicada
+	 * da cartela (manual, pag. 11). A coluna tem de ser da cor da peca, menos
+	 * para o Jochi. Com coluna null a peca vai para a coluna da sua cor.
 	 */
-	boolean comprarMelhoria(PecaMelhoria melhoria, Regiao coluna) {
-		if (encerrada || melhoria == null || coluna == null)
+	boolean comprarMelhoria(int espaco, ColunaCartela coluna) {
+		if (encerrada)
 			return false;
-		Jogador j = jogadorAtual();
+		MelhoriaColorida m = espaco < 0 ? area.verTopo() : area.getEspaco(espaco);
+		if (m == null)
+			return false;
+		ColunaCartela col = coluna == null ? m.getCor() : coluna;
+		if (col == ColunaCartela.BRANCA)
+			return false;
+		if (col != m.getCor() && !herdeiro(getCorAtual()).equals(JOCHI))
+			return false; // Jochi: nao precisa seguir a cor das pecas
 		Cartela cartela = cartelas.get(getCorAtual());
-		ColunaCartela col = ColunaCartela.daRegiao(coluna);
 		if (cartela.getNumMelhorias(col) >= MAX_MELHORIAS_POR_COLUNA)
 			return false;
 		if (disponivel(TipoTributo.MOEDA) < CUSTO_MELHORIA)
 			return false;
 		gastar(TipoTributo.MOEDA, CUSTO_MELHORIA);
-		j.adicionarMelhoria(melhoria);
-		cartela.adicionarMelhoria(col, TipoMelhoria.porNome(melhoria.getNome()));
+		area.retirar(espaco);
+		TipoMelhoria t = m.getTipo();
+		jogadorAtual().adicionarMelhoria(new PecaMelhoria(t.name(), t.getIcones().toString(), m.getCor().name()));
+		cartela.adicionarMelhoria(col, t);
 		return true;
 	}
 
@@ -445,13 +515,29 @@ class Partida {
 		if (!podeAgir() || !khanPendente || destino == null)
 			return false;
 		boolean ok;
-		if (destino.equals(Mapa.AREA_DE_MELHORIAS))
+		if (destino.equals(Mapa.AREA_DE_MELHORIAS)) {
 			ok = mapa.moverKhanParaAreaDeMelhorias();
-		else
+			if (ok)
+				reporAreaDeMelhorias();
+		} else {
 			ok = mapa.moverKhanParaProvincia(destino);
+		}
 		if (ok)
 			khanPendente = false;
 		return ok;
+	}
+
+	/**
+	 * O Khan chegou na area de melhorias (manual, pag. 9): o jogador pega 1
+	 * moeda e/ou 1 espada se os icones estiverem a mostra e depois os espacos
+	 * vazios recebem pecas novas da pilha.
+	 */
+	private void reporAreaDeMelhorias() {
+		if (area.iconeDeMoedaAMostra())
+			jogadorAtual().adicionarRecursos(TipoTributo.MOEDA, 1);
+		if (area.iconeDeEspadaAMostra())
+			jogadorAtual().adicionarRecursos(TipoTributo.ESPADA, 1);
+		area.preencherVazios();
 	}
 
 	/** O turno so pode ser encerrado depois de usar o Khan, quando a coluna ativada o exige. */
@@ -459,10 +545,122 @@ class Partida {
 		return !khanPendente;
 	}
 
-	/** Coloca na coluna branca uma melhoria gratis ganha por linha completa. */
-	boolean colocarMelhoriaGratis(String cor, TipoMelhoria tipo) {
+	/**
+	 * Coloca na coluna branca a melhoria gratis ganha por linha completa: uma
+	 * das pecas da area (0 a 4) ou a do topo da pilha (-1), sem regra de cor.
+	 */
+	boolean colocarMelhoriaGratis(String cor, int espaco) {
 		Cartela c = cartelas.get(cor);
-		return c != null && c.adicionarMelhoriaGratis(tipo);
+		if (encerrada || c == null || c.getMelhoriasGratisPendentes() <= 0)
+			return false;
+		MelhoriaColorida m = espaco < 0 ? area.verTopo() : area.getEspaco(espaco);
+		if (m == null)
+			return false;
+		area.retirar(espaco);
+		return c.adicionarMelhoriaGratis(m.getTipo());
+	}
+
+	// =====================================================================
+	// Habilidades especiais dos herdeiros (texto das cartelas, manual pag. 20)
+	// =====================================================================
+
+	AreaDeMelhorias getArea() {
+		return area;
+	}
+
+	boolean isHabilidadeUsadaNoTurno() {
+		return habilidadeUsadaNoTurno;
+	}
+
+	/** Altani: qual peao (1 ou 2) joga; 0 para os outros herdeiros. */
+	int getPeaoEscolhido(String cor) {
+		Integer n = peaoEscolhido.get(cor);
+		return n == null ? 0 : n;
+	}
+
+	/**
+	 * Altani: escolhe o peao (1 ou 2) que vai mover e fazer as acoes neste
+	 * turno. So antes de ativar a coluna; o outro peao nao faz nada.
+	 */
+	boolean escolherPeao(int numero) {
+		String cor = getCorAtual();
+		if (encerrada || colunaAtivada != null || !herdeiro(cor).equals(ALTANI) || (numero != 1 && numero != 2))
+			return false;
+		peaoEscolhido.put(cor, numero);
+		visitadas = new ArrayList<String>();
+		visitadas.add(mapa.getPosicao(peaoDaVez()));
+		return true;
+	}
+
+	/** Chagatai: 1x por turno, deixa de usar 1 cavalo para ganhar 1 peca de espada (que pode guardar). */
+	boolean trocarCavaloPorEspada() {
+		if (!podeAgir() || habilidadeUsadaNoTurno || movimentos < 1 || !herdeiro(getCorAtual()).equals(CHAGATAI))
+			return false;
+		movimentos--;
+		jogadorAtual().adicionarRecursos(TipoTributo.ESPADA, 1);
+		habilidadeUsadaNoTurno = true;
+		return true;
+	}
+
+	/**
+	 * Ogedei: 1x por turno, paga 1 moeda (real ou virtual) para pegar um tesouro
+	 * de qualquer cidade do mapa, desde que nao seja o ultimo tesouro dela.
+	 */
+	boolean pegarTesouroComMoeda(String cidade, Tesouro tesouro) {
+		if (!podeAgir() || habilidadeUsadaNoTurno || tesouro == null || !herdeiro(getCorAtual()).equals(OGEDEI))
+			return false;
+		Cidade c = mapa.getCidade(cidade);
+		if (c == null || !c.isDisponivel() || c.getNumTesouros() < 2 || disponivel(TipoTributo.MOEDA) < 1)
+			return false;
+		if (!c.retirarTesouro(tesouro, getCorAtual()))
+			return false;
+		gastar(TipoTributo.MOEDA, 1);
+		jogadorAtual().adicionarTesouro(tesouro);
+		habilidadeUsadaNoTurno = true;
+		return true;
+	}
+
+	/** Jochi: as 2 melhorias tiradas no inicio do jogo que ele ainda nao escolheu (vazia depois). */
+	List<MelhoriaColorida> getMelhoriasIniciaisJochi(String cor) {
+		List<MelhoriaColorida> lst = melhoriasIniciaisJochi.get(cor);
+		return lst == null ? new ArrayList<MelhoriaColorida>() : new ArrayList<MelhoriaColorida>(lst);
+	}
+
+	/**
+	 * Jochi: coloca na coluna branca uma das 2 melhorias iniciais (indice 0 ou 1);
+	 * a outra volta para o fundo da pilha. Ela ocupa o espaco da 1a linha, entao
+	 * completar a 1a linha nao da outra melhoria gratis (manual, pag. 20).
+	 */
+	boolean escolherMelhoriaInicial(String cor, int indice) {
+		List<MelhoriaColorida> lst = melhoriasIniciaisJochi.get(cor);
+		if (encerrada || lst == null || indice < 0 || indice >= lst.size())
+			return false;
+		MelhoriaColorida escolhida = lst.get(indice);
+		if (!cartelas.get(cor).colocarMelhoriaInicial(escolhida.getTipo()))
+			return false;
+		for (int i = 0; i < lst.size(); i++)
+			if (i != indice)
+				area.devolverAoFundo(lst.get(i));
+		melhoriasIniciaisJochi.remove(cor);
+		return true;
+	}
+
+	/** Refaz area de melhorias e habilidades a partir de um arquivo salvo. */
+	void restaurarHabilidades(MelhoriaColorida[] espacos, List<MelhoriaColorida> pilha, boolean usada,
+			Map<String, Integer> peoes, Map<String, List<MelhoriaColorida>> iniciaisJochi) {
+		area.restaurar(espacos, pilha);
+		habilidadeUsadaNoTurno = usada;
+		for (Map.Entry<String, Integer> e : peoes.entrySet()) {
+			if (!herdeiro(e.getKey()).equals(ALTANI) || (e.getValue() != 1 && e.getValue() != 2))
+				throw new IllegalArgumentException("peao escolhido invalido: " + e.getKey());
+			peaoEscolhido.put(e.getKey(), e.getValue());
+		}
+		melhoriasIniciaisJochi.clear();
+		for (Map.Entry<String, List<MelhoriaColorida>> e : iniciaisJochi.entrySet()) {
+			if (!herdeiro(e.getKey()).equals(JOCHI))
+				throw new IllegalArgumentException("melhoria inicial de quem nao e o Jochi: " + e.getKey());
+			melhoriasIniciaisJochi.put(e.getKey(), new ArrayList<MelhoriaColorida>(e.getValue()));
+		}
 	}
 
 	// recursos reais do jogador + virtuais do turno
@@ -537,24 +735,38 @@ class Partida {
 	List<String> vencedores() {
 		if (!pontuada)
 			throw new IllegalStateException("Pontue a influencia antes de apurar o vencedor.");
-		List<String> v = manterMaiores(ordem, c -> jogadores.get(c).getVotos());
+		List<String> v = manterMaiores(ordem, CRITERIO_VOTOS);
 		if (v.size() > 1)
-			v = manterMaiores(v, c -> jogadores.get(c).getTesouros().size());
+			v = manterMaiores(v, CRITERIO_TESOUROS);
 		if (v.size() > 1)
-			v = manterMaiores(v, c -> {
-				int d = mapa.distanciaAteKarakorum(c);
-				return d < 0 ? Integer.MIN_VALUE : -d;
-			});
+			v = manterMaiores(v, CRITERIO_KARAKORUM);
 		return v;
 	}
 
-	private List<String> manterMaiores(List<String> cores, ToIntFunction<String> criterio) {
+	private static final int CRITERIO_VOTOS = 0;
+	private static final int CRITERIO_TESOUROS = 1;
+	private static final int CRITERIO_KARAKORUM = 2;
+
+	// valor do jogador no criterio de desempate (maior e melhor)
+	private int valor(String cor, int criterio) {
+		switch (criterio) {
+		case CRITERIO_VOTOS:
+			return jogadores.get(cor).getVotos();
+		case CRITERIO_TESOUROS:
+			return jogadores.get(cor).getTesouros().size();
+		default:
+			int d = mapa.distanciaAteKarakorum(cor);
+			return d < 0 ? Integer.MIN_VALUE : -d;
+		}
+	}
+
+	private List<String> manterMaiores(List<String> cores, int criterio) {
 		int melhor = Integer.MIN_VALUE;
 		for (String c : cores)
-			melhor = Math.max(melhor, criterio.applyAsInt(c));
+			melhor = Math.max(melhor, valor(c, criterio));
 		List<String> resultado = new ArrayList<String>();
 		for (String c : cores)
-			if (criterio.applyAsInt(c) == melhor)
+			if (valor(c, criterio) == melhor)
 				resultado.add(c);
 		return resultado;
 	}
@@ -718,7 +930,7 @@ class Partida {
 		case "3_cidades":
 			return cidadesDe(cor) >= 3;
 		case "linha_completa":
-			return ct.getMelhoriasGratisRecebidas() >= 1;
+			return ct.getLinhasCompletas() >= 1; // a melhoria inicial do Jochi nao conta
 		case "4_melhorias_coluna":
 			for (ColunaCartela c : ColunaCartela.values())
 				if (melhoriasNaColuna(ct, c) >= 4)

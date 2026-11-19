@@ -40,6 +40,12 @@ public final class ModeloApi implements ObservadoIF {
 	/** Destino do Khan fora do mapa (ver usarKhan). */
 	public static final String AREA_DE_MELHORIAS = Mapa.AREA_DE_MELHORIAS;
 
+	// area de melhorias: espacos 0 (esquerda) a 4; TOPO_DA_PILHA = peca aleatoria do topo
+	public static final int ESPACOS_DA_AREA = AreaDeMelhorias.ESPACOS;
+	public static final int TOPO_DA_PILHA = -1;
+	public static final int ESPACO_ICONE_MOEDA = AreaDeMelhorias.ESPACO_ICONE_MOEDA;
+	public static final int ESPACO_ICONE_ESPADA = AreaDeMelhorias.ESPACO_ICONE_ESPADA;
+
 	private static ModeloApi instancia = null;
 
 	private Map<Integer, Jogador> jogadores;
@@ -555,27 +561,117 @@ public final class ModeloApi implements ObservadoIF {
 		return ct == null ? 0 : ct.getMelhoriasGratisPendentes();
 	}
 
-	/** Coloca na coluna branca uma melhoria gratis do tipo indicado (ex.: "CAVALOS"). */
-	public boolean colocarMelhoriaGratis(String cor, String tipoMelhoria) {
-		TipoMelhoria t = TipoMelhoria.porNome(tipoMelhoria);
-		if (partida == null || t == null || !partida.colocarMelhoriaGratis(cor, t))
+	/**
+	 * Coloca na coluna branca a melhoria gratis (linha completa): a peca de um
+	 * espaco da area (0 a 4) ou a do topo da pilha (TOPO_DA_PILHA). Sem regra de cor.
+	 */
+	public boolean colocarMelhoriaGratis(String cor, int espaco) {
+		if (partida == null || !partida.colocarMelhoriaGratis(cor, espaco))
 			return false;
 		notificar();
 		return true;
 	}
 
 	/**
-	 * O jogador da vez compra uma melhoria por 2 moedas (reais ou virtuais) e
-	 * a coloca na coluna indicada (vermelha, verde ou amarela). A escolha da
-	 * peca na area de melhorias e a regra da cor ficam com quem chama.
+	 * O jogador da vez compra por 2 moedas (reais ou virtuais) a melhoria de um
+	 * espaco da area (0 a 4) ou a do topo da pilha (TOPO_DA_PILHA) e a coloca na
+	 * coluna indicada (vermelha, verde ou amarela), que tem de ser da cor da
+	 * peca (o Jochi pode escolher qualquer uma). As pecas que sobram na area
+	 * andam para a direita.
 	 */
-	public boolean comprarMelhoria(String tipoMelhoria, int coluna) {
-		TipoMelhoria t = TipoMelhoria.porNome(tipoMelhoria);
+	public boolean comprarMelhoria(int espaco, int coluna) {
 		ColunaCartela c = coluna(coluna);
-		if (partida == null || t == null || c == null || c == ColunaCartela.BRANCA)
+		if (partida == null || c == null || c == ColunaCartela.BRANCA || !partida.comprarMelhoria(espaco, c))
 			return false;
-		PecaMelhoria peca = new PecaMelhoria(t.name(), t.getIcones().toString(), "-");
-		if (!partida.comprarMelhoria(peca, c.getRegiao()))
+		notificar();
+		return true;
+	}
+
+	/** Compra a melhoria e a coloca na coluna da cor dela. */
+	public boolean comprarMelhoria(int espaco) {
+		if (partida == null || !partida.comprarMelhoria(espaco, null))
+			return false;
+		notificar();
+		return true;
+	}
+
+	/** Tipo da melhoria no espaco da area (ex.: "MOEDA", "TESOURO_SEDA"), ou null se vazio. */
+	public String getTipoMelhoriaNaArea(int espaco) {
+		MelhoriaColorida m = partida == null ? null : partida.getArea().getEspaco(espaco);
+		return m == null ? null : m.getTipo().name();
+	}
+
+	/** Cor (coluna 0, 1 ou 2) da melhoria no espaco da area, ou -1 se vazio. */
+	public int getCorMelhoriaNaArea(int espaco) {
+		MelhoriaColorida m = partida == null ? null : partida.getArea().getEspaco(espaco);
+		return m == null ? -1 : m.getCor().ordinal();
+	}
+
+	/** Pecas de melhoria que restam viradas para baixo na pilha. */
+	public int getMelhoriasNaPilha() {
+		return partida == null ? 0 : partida.getArea().getTamanhoPilha();
+	}
+
+	// =====================================================================
+	// Habilidades especiais dos herdeiros (texto impresso nas cartelas)
+	// =====================================================================
+
+	/** Altani: parada do 2o peao, ou null para os outros herdeiros. */
+	public String getPosicaoSegundoPeao(String cor) {
+		return cor == null ? null : mapa.getPosicao(cor + Mapa.SUFIXO_SEGUNDO_PEAO);
+	}
+
+	/** Altani: peao (1 ou 2) que joga neste turno; 0 para os outros herdeiros. */
+	public int getPeaoEscolhido(String cor) {
+		return partida == null ? 0 : partida.getPeaoEscolhido(cor);
+	}
+
+	/** Parada do peao que joga neste turno (para a Altani, o peao escolhido). */
+	public String getPosicaoPeaoDaVez() {
+		return partida == null ? null : mapa.getPosicao(partida.peaoDaVez());
+	}
+
+	/** Altani: escolhe o peao (1 ou 2) que move e faz as acoes. So antes de ativar a coluna. */
+	public boolean escolherPeao(int numero) {
+		if (partida == null || !partida.escolherPeao(numero))
+			return false;
+		notificar();
+		return true;
+	}
+
+	/** Chagatai: 1x por turno, troca 1 movimento por 1 peca de espada. */
+	public boolean trocarCavaloPorEspada() {
+		if (partida == null || !partida.trocarCavaloPorEspada())
+			return false;
+		notificar();
+		return true;
+	}
+
+	/** Ogedei: 1x por turno, paga 1 moeda e pega um tesouro de qualquer cidade (nao o ultimo dela). */
+	public boolean pegarTesouroComMoeda(String cidade, String tesouro) {
+		if (partida == null || tesouro == null || !partida.pegarTesouroComMoeda(cidade, new Tesouro(tesouro)))
+			return false;
+		notificar();
+		return true;
+	}
+
+	/** Chagatai e Ogedei: a habilidade (1x por turno) ja foi usada neste turno? */
+	public boolean isHabilidadeUsadaNoTurno() {
+		return partida != null && partida.isHabilidadeUsadaNoTurno();
+	}
+
+	/** Jochi: tipos das 2 melhorias iniciais ainda nao escolhidas (vazia depois da escolha). */
+	public List<String> getMelhoriasIniciaisJochi(String cor) {
+		List<String> lst = new ArrayList<String>();
+		if (partida != null)
+			for (MelhoriaColorida m : partida.getMelhoriasIniciaisJochi(cor))
+				lst.add(m.getTipo().name());
+		return lst;
+	}
+
+	/** Jochi: poe na coluna branca a melhoria inicial de indice 0 ou 1; a outra volta para a pilha. */
+	public boolean escolherMelhoriaInicial(String cor, int indice) {
+		if (partida == null || !partida.escolherMelhoriaInicial(cor, indice))
 			return false;
 		notificar();
 		return true;
@@ -792,4 +888,4 @@ public final class ModeloApi implements ObservadoIF {
 		Objects.checkIndex(indice, itens.size());
 		return itens.get(indice);
 	}
-}
+}

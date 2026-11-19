@@ -104,16 +104,25 @@ public class Main implements OuvinteInicio, OuvinteArquivos, OuvinteMelhorias {
 	// ------------------------------------------------------------------
 
 	@Override
-	public String comprar(String tipo, int coluna) {
-		if (!modelo.comprarMelhoria(tipo, coluna))
-			return "Nao foi possivel: precisa de 2 moedas (reais ou virtuais), de espaco na coluna (maximo 4) e de estar jogando.";
+	public String comprar(int espaco, int coluna) {
+		boolean ok = coluna < 0 ? modelo.comprarMelhoria(espaco) : modelo.comprarMelhoria(espaco, coluna);
+		if (!ok)
+			return "Nao foi possivel: precisa de 2 moedas (reais ou virtuais), de espaco na coluna (maximo 4), "
+					+ "de estar jogando e de usar a coluna da cor da peca (o Jochi pode usar qualquer uma).";
 		return null;
 	}
 
 	@Override
-	public String colocarGratis(String cor, String tipo) {
-		if (!modelo.colocarMelhoriaGratis(cor, tipo))
+	public String colocarGratis(String cor, int espaco) {
+		if (!modelo.colocarMelhoriaGratis(cor, espaco))
 			return "Nao foi possivel colocar essa melhoria gratis agora.";
+		return null;
+	}
+
+	@Override
+	public String escolherInicial(String cor, int indice) {
+		if (!modelo.escolherMelhoriaInicial(cor, indice))
+			return "Nao foi possivel escolher essa melhoria inicial.";
 		return null;
 	}
 

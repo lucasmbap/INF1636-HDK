@@ -10,7 +10,7 @@ final class PecaKarakorum {
 
 	PecaKarakorum(List<String> tesourosExigidos) {
 		if (tesourosExigidos == null || tesourosExigidos.size() != 3
-				|| tesourosExigidos.stream().distinct().count() != 3
+				|| new java.util.HashSet<String>(tesourosExigidos).size() != 3
 				|| !TIPOS_TESOURO.containsAll(tesourosExigidos))
 			throw new IllegalArgumentException("A peca de Karakorum exige tres tesouros distintos e validos.");
 		this.tesourosExigidos = new ArrayList<String>(tesourosExigidos);

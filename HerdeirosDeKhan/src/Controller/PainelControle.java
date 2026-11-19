@@ -21,6 +21,7 @@ public final class PainelControle extends JPanel {
 	static final String ACAO_ATACAR = "Atacar cidade";
 	static final String ACAO_YURT = "Construir yurt";
 	static final String ACAO_KHAN = "Mover Khan";
+	static final String ACAO_OGEDEI = "Tesouro por 1 moeda (Ogedei)";
 
 	private final JComboBox<String> acao = new JComboBox<String>();
 	private final JComboBox<String> tesouro = new JComboBox<String>();
@@ -29,6 +30,10 @@ public final class PainelControle extends JPanel {
 	private final JLabel requisitosEntrega = new JLabel(" ");
 	private final JButton entregarTesouros = new JButton("Entregar tesouros");
 	private final JButton encerrarTurno = new JButton("Encerrar turno");
+	// habilidades dos herdeiros
+	private final JLabel habilidade = new JLabel(" ");
+	private final JButton trocarPeao = new JButton("Altani: jogar com o outro peao");
+	private final JButton cavaloPorEspada = new JButton("Chagatai: 1 cavalo -> 1 espada");
 	private final JLabel jogadorDaVez = new JLabel("Jogador da vez: -");
 	private final JLabel estadoTurno = new JLabel("Escolha uma coluna na cartela.");
 	private final JLabel estado = new JLabel(" ");
@@ -42,6 +47,7 @@ public final class PainelControle extends JPanel {
 		acao.addItem(ACAO_ATACAR);
 		acao.addItem(ACAO_YURT);
 		acao.addItem(ACAO_KHAN);
+		acao.addItem(ACAO_OGEDEI);
 		tesouro.addItem("gado");
 		tesouro.addItem("especiaria");
 		tesouro.addItem("pele");
@@ -69,6 +75,9 @@ public final class PainelControle extends JPanel {
 		for (JComboBox<String> seletorTesouro : tesourosEntrega)
 			add(seletorTesouro);
 		add(entregarTesouros);
+		add(habilidade);
+		add(trocarPeao);
+		add(cavaloPorEspada);
 		add(encerrarTurno);
 		add(estado);
 	}
@@ -130,6 +139,41 @@ public final class PainelControle extends JPanel {
 		entregarTesouros.setEnabled(disponivel);
 	}
 
+	JButton getBotaoTrocarPeao() {
+		return trocarPeao;
+	}
+
+	JButton getBotaoCavaloPorEspada() {
+		return cavaloPorEspada;
+	}
+
+	/**
+	 * Mostra a habilidade do herdeiro da vez (texto da cartela) e liga so os botoes dele.
+	 * Altani troca de peao antes de ativar a coluna; Chagatai usa 1x por turno.
+	 */
+	void atualizarHabilidade(String herdeiro, boolean turnoAtivo, boolean colunaEscolhida, boolean usada,
+			int peao) {
+		String h = herdeiro == null ? "" : herdeiro;
+		if (h.equals("Altani"))
+			habilidade.setText("<html>Altani: joga com o peao " + peao + " (escolha antes da coluna)</html>");
+		else if (h.equals("Chagatai"))
+			habilidade.setText("<html>Chagatai: 1x por turno, troque 1 cavalo por 1 espada"
+					+ (usada ? " (ja usou)" : "") + "</html>");
+		else if (h.equals("Ogedei"))
+			habilidade.setText("<html>Ogedei: 1x por turno, 1 moeda = 1 tesouro de qualquer cidade"
+					+ (usada ? " (ja usou)" : "") + "</html>");
+		else if (h.equals("Tolui"))
+			habilidade.setText("<html>Tolui: pode construir yurts nas paradas ao lado do peao</html>");
+		else if (h.equals("Jochi"))
+			habilidade.setText("<html>Jochi: compra melhorias para qualquer coluna</html>");
+		else
+			habilidade.setText(" ");
+		trocarPeao.setVisible(h.equals("Altani"));
+		trocarPeao.setEnabled(turnoAtivo && !colunaEscolhida);
+		cavaloPorEspada.setVisible(h.equals("Chagatai"));
+		cavaloPorEspada.setEnabled(turnoAtivo && colunaEscolhida && !usada);
+	}
+
 	JButton getBotaoEncerrarTurno() {
 		return encerrarTurno;
 	}
@@ -150,7 +194,7 @@ public final class PainelControle extends JPanel {
 		boolean turnoAtivo = partidaIniciada && !partidaEncerrada && colunaAtivada >= 0;
 		acao.setEnabled(turnoAtivo);
 		tesouro.setEnabled(turnoAtivo
-				&& ACAO_ATACAR.equals(getAcaoSelecionada()));
+				&& (ACAO_ATACAR.equals(getAcaoSelecionada()) || ACAO_OGEDEI.equals(getAcaoSelecionada())));
 		conselheiro.setEnabled(turnoAtivo && conselheiro.getItemCount() > 0);
 		entregarTesouros.setEnabled(turnoAtivo && conselheiro.getItemCount() > 0
 				&& entregarTesouros.isEnabled());

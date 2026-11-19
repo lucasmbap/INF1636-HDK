@@ -105,6 +105,19 @@ class Parada {
 		return true;
 	}
 
+	/**
+	 * Coloca um yurt mesmo onde a regra normal nao deixa (o yurt inicial do
+	 * Tolui em Karakorum, manual pag. 6 e 20).
+	 */
+	void colocarYurtEspecial(String cor) {
+		yurts.add(cor);
+	}
+
+	/** Tira todos os yurts (usado ao recuperar uma partida). */
+	void limparYurts() {
+		yurts.clear();
+	}
+
 	boolean temYurtDe(String cor) {
 		return yurts.contains(cor);
 	}

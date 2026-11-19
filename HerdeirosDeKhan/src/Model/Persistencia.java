@@ -123,12 +123,32 @@ final class Persistencia {
 		for (String t : p.getTesourosVirtuais())
 			linha(sb, "TESOURO_VIRTUAL", t);
 
+		// area de melhorias (5 espacos + pilha) e habilidades dos herdeiros
+		AreaDeMelhorias area = p.getArea();
+		for (int i = 0; i < AreaDeMelhorias.ESPACOS; i++) {
+			MelhoriaColorida mc = area.getEspaco(i);
+			linha(sb, "AREA", String.valueOf(i), mc == null ? null : mc.codigo());
+		}
+		for (MelhoriaColorida mc : area.getPilha())
+			linha(sb, "PILHA_MELHORIA", mc.codigo());
+		linha(sb, "HABILIDADE", bool(p.isHabilidadeUsadaNoTurno()));
+		for (Jogador j : e.ordemJogadores) {
+			if (p.getPeaoEscolhido(j.getCor()) > 0)
+				linha(sb, "PEAO_ESCOLHIDO", j.getCor(), String.valueOf(p.getPeaoEscolhido(j.getCor())));
+			for (MelhoriaColorida mc : p.getMelhoriasIniciaisJochi(j.getCor()))
+				linha(sb, "JOCHI_INICIAL", j.getCor(), mc.codigo());
+		}
+
 		Mapa m = e.mapa;
 		List<String> exigidos = m.getRequisitosKarakorum();
 		if (exigidos.size() == 3)
 			linha(sb, "KARAKORUM", exigidos.get(0), exigidos.get(1), exigidos.get(2));
-		for (Jogador j : e.ordemJogadores)
+		for (Jogador j : e.ordemJogadores) {
 			linha(sb, "PEAO", j.getCor(), m.getPosicao(j.getCor()));
+			String segundo = j.getCor() + Mapa.SUFIXO_SEGUNDO_PEAO; // so a Altani tem
+			if (m.getPosicao(segundo) != null)
+				linha(sb, "PEAO", segundo, m.getPosicao(segundo));
+		}
 		for (String parada : m.getNomesParadasOrdenados())
 			for (String cor : m.getYurtsNaParada(parada))
 				linha(sb, "YURT", parada, cor);
@@ -249,6 +269,12 @@ final class Persistencia {
 		List<String[]> cidadesSalvas = new ArrayList<String[]>();
 		String khan = null;
 		boolean temKhan = false;
+		MelhoriaColorida[] area = new MelhoriaColorida[AreaDeMelhorias.ESPACOS];
+		boolean temArea = false; // arquivos antigos nao tem a area: ela fica sorteada
+		List<MelhoriaColorida> pilhaMelhorias = new ArrayList<MelhoriaColorida>();
+		boolean habilidadeUsada = false;
+		Map<String, Integer> peaoEscolhido = new HashMap<String, Integer>();
+		Map<String, List<MelhoriaColorida>> iniciaisJochi = new HashMap<String, List<MelhoriaColorida>>();
 		// por cor: ocupadas/gratis e colunas
 		Map<String, List<ColunaCartela>> ocupadas = new HashMap<String, List<ColunaCartela>>();
 		Map<String, Integer> gratis = new HashMap<String, Integer>();
@@ -387,6 +413,29 @@ final class Persistencia {
 				khan = dec(f[1]);
 				temKhan = true;
 				break;
+			case "AREA": {
+				int i2 = inteiro(f[1]);
+				String cod = dec(f[2]);
+				area[i2] = cod == null ? null : MelhoriaColorida.deCodigo(cod);
+				temArea = true;
+				break;
+			}
+			case "PILHA_MELHORIA":
+				pilhaMelhorias.add(MelhoriaColorida.deCodigo(dec(f[1])));
+				break;
+			case "HABILIDADE":
+				habilidadeUsada = booleano(f[1]);
+				break;
+			case "PEAO_ESCOLHIDO":
+				jogador(porCor, f[1]);
+				peaoEscolhido.put(dec(f[1]), inteiro(f[2]));
+				break;
+			case "JOCHI_INICIAL":
+				jogador(porCor, f[1]);
+				if (!iniciaisJochi.containsKey(dec(f[1])))
+					iniciaisJochi.put(dec(f[1]), new ArrayList<MelhoriaColorida>());
+				iniciaisJochi.get(dec(f[1])).add(MelhoriaColorida.deCodigo(dec(f[2])));
+				break;
 			default:
 				throw new IOException("linha desconhecida: " + chave);
 			}
@@ -447,6 +496,8 @@ final class Persistencia {
 			coluna = ColunaCartela.values()[colunaAtivada];
 		partida.restaurar(indice, votosNeutra, fim, ultima, terminada, pontuada, bonus, ativo, mov, punhos,
 				visitadas, tomados, coluna, khanPendente, virtuais, tesVirtuais);
+		if (temArea)
+			partida.restaurarHabilidades(area, pilhaMelhorias, habilidadeUsada, peaoEscolhido, iniciaisJochi);
 
 		est.mapa = mapa;
 		est.partida = partida;

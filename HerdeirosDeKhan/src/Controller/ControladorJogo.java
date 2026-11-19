@@ -22,6 +22,8 @@ import View.OuvinteAcoes;
 public final class ControladorJogo implements ActionListener, MouseListener, ObservadorIF, OuvinteAcoes {
 	private static final String ENCERRAR_TURNO = "encerrarTurno";
 	private static final String ENTREGAR_TESOUROS = "entregarTesouros";
+	private static final String TROCAR_PEAO = "trocarPeao";
+	private static final String CAVALO_POR_ESPADA = "cavaloPorEspada";
 
 	private final ModeloApi modelo;
 	private final JComponent tabuleiro;
@@ -40,6 +42,10 @@ public final class ControladorJogo implements ActionListener, MouseListener, Obs
 		painelControle.getBotaoEncerrarTurno().addActionListener(this);
 		painelControle.getBotaoEntregarTesouros().setActionCommand(ENTREGAR_TESOUROS);
 		painelControle.getBotaoEntregarTesouros().addActionListener(this);
+		painelControle.getBotaoTrocarPeao().setActionCommand(TROCAR_PEAO);
+		painelControle.getBotaoTrocarPeao().addActionListener(this);
+		painelControle.getBotaoCavaloPorEspada().setActionCommand(CAVALO_POR_ESPADA);
+		painelControle.getBotaoCavaloPorEspada().addActionListener(this);
 		painelControle.getSeletorAcao().addActionListener(this);
 		painelControle.getSeletorConselheiro().addActionListener(this);
 		tabuleiro.addMouseListener(this);
@@ -68,6 +74,19 @@ public final class ControladorJogo implements ActionListener, MouseListener, Obs
 		}
 		if (ENTREGAR_TESOUROS.equals(evento.getActionCommand())) {
 			entregarTesouros();
+			return;
+		}
+		if (TROCAR_PEAO.equals(evento.getActionCommand())) {
+			int outro = modelo.getPeaoEscolhido(modelo.getCorDaVez()) == 2 ? 1 : 2;
+			painelControle.exibirMensagem(modelo.escolherPeao(outro)
+					? "Neste turno joga o peao " + outro + "."
+					: "So da para trocar de peao antes de ativar a coluna.");
+			return;
+		}
+		if (CAVALO_POR_ESPADA.equals(evento.getActionCommand())) {
+			painelControle.exibirMensagem(modelo.trocarCavaloPorEspada()
+					? "Voce deixou de usar 1 cavalo e ganhou 1 espada."
+					: "Precisa de 1 movimento sobrando (e so 1 vez por turno).");
 			return;
 		}
 		if (!ENCERRAR_TURNO.equals(evento.getActionCommand()))
@@ -124,6 +143,11 @@ public final class ControladorJogo implements ActionListener, MouseListener, Obs
 					ponto.origemY, ponto.escala, destinos);
 			if (destino != null)
 				realizado = modelo.usarKhan(destino);
+		} else if (PainelControle.ACAO_OGEDEI.equals(acao)) {
+			String cidade = CoordenadasMapa.cidadeEm(evento.getX(), evento.getY(), ponto.origemX,
+					ponto.origemY, ponto.escala);
+			if (cidade != null)
+				realizado = modelo.pegarTesouroComMoeda(cidade, painelControle.getTesouroSelecionado());
 		}
 
 		if (realizado)
@@ -163,6 +187,10 @@ public final class ControladorJogo implements ActionListener, MouseListener, Obs
 		painelControle.atualizarEstado(modelo.getCorDaVez(), modelo.getMovimentosRestantes(),
 				modelo.getPunhosRestantes(), modelo.isPartidaIniciada(), modelo.isPartidaEncerrada(),
 				modelo.getColunaAtivada(), modelo.isKhanPendente());
+		String cor = modelo.getCorDaVez();
+		painelControle.atualizarHabilidade(cor == null ? null : modelo.getHerdeiroDaCartela(cor),
+				modelo.isPartidaIniciada() && !modelo.isPartidaEncerrada(), modelo.getColunaAtivada() >= 0,
+				modelo.isHabilidadeUsadaNoTurno(), cor == null ? 0 : modelo.getPeaoEscolhido(cor));
 		tabuleiro.repaint();
 	}
 
@@ -234,6 +262,8 @@ public final class ControladorJogo implements ActionListener, MouseListener, Obs
 		modelo.remove(this);
 		painelControle.getBotaoEncerrarTurno().removeActionListener(this);
 		painelControle.getBotaoEntregarTesouros().removeActionListener(this);
+		painelControle.getBotaoTrocarPeao().removeActionListener(this);
+		painelControle.getBotaoCavaloPorEspada().removeActionListener(this);
 		painelControle.getSeletorAcao().removeActionListener(this);
 		painelControle.getSeletorConselheiro().removeActionListener(this);
 	}

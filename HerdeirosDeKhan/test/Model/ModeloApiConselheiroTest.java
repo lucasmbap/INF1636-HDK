@@ -33,7 +33,7 @@ public class ModeloApiConselheiroTest {
 
 		assertTrue(api.getNomesTesouros(idAna).isEmpty());
 		assertEquals(1, api.getVotos(idAna));
-		assertEquals(1, api.getQuantidadeRecurso(idAna, TipoTributo.MOEDA));
+		assertEquals(2, api.getQuantidadeRecurso(idAna, TipoTributo.MOEDA)); // peca de bonus = 2 moedas (manual, pag. 13)
 	}
 
 	@Test
@@ -54,12 +54,14 @@ public class ModeloApiConselheiroTest {
 		adicionarSedas(4);
 		api.definirMovimentos(20);
 		assertTrue(api.moverPara("R2"));
+		// com 4 tesouros a Ana pode cumprir a carta aberta "4_tesouros" (sorteada) e ganhar 1 voto antes
+		int votosAntes = api.getVotos(idAna);
 
 		assertTrue(api.entregarTesourosConselheiro("R2", List.of("seda", "seda")));
 		assertTrue(api.entregarTesourosConselheiro("R2", List.of("seda", "seda")));
 
-		assertEquals(2, api.getVotos(idAna));
-		assertEquals(1, api.getQuantidadeRecurso(idAna, TipoTributo.MOEDA));
+		assertEquals(votosAntes + 2, api.getVotos(idAna)); // 1 voto por entrega
+		assertEquals(2, api.getQuantidadeRecurso(idAna, TipoTributo.MOEDA)); // bonus so na 1a entrega
 	}
 
 	@Test
@@ -84,7 +86,7 @@ public class ModeloApiConselheiroTest {
 		assertTrue(api.entregarTesourosConselheiro("Karakorum", requisitos));
 
 		assertEquals(2, api.getVotos(idAna));
-		assertEquals(1, api.getQuantidadeRecurso(idAna, TipoTributo.MOEDA));
+		assertEquals(2, api.getQuantidadeRecurso(idAna, TipoTributo.MOEDA)); // peca de bonus = 2 moedas
 		assertTrue(api.getNomesTesouros(idAna).isEmpty());
 	}
 

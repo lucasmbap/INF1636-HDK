@@ -24,6 +24,12 @@ import java.util.Set;
 class Mapa {
 	static final String KARAKORUM = "Karakorum";
 	static final String AREA_DE_MELHORIAS = "Area de melhorias";
+	/**
+	 * A Altani tem 2 peoes (cartela dela). O segundo peao e guardado no mapa
+	 * com a cor dela seguida deste sufixo (ex.: "Vermelho#2"); os yurts
+	 * continuam sendo da cor do jogador.
+	 */
+	static final String SUFIXO_SEGUNDO_PEAO = "#2";
 
 	private Map<String, Parada> paradas = new HashMap<String, Parada>();
 	private Map<String, Provincia> provincias = new HashMap<String, Provincia>();
@@ -249,6 +255,13 @@ class Mapa {
 	// Peoes e movimento
 	// =====================================================================
 
+	/** Cor do jogador dono do peao (tira o sufixo do segundo peao da Altani). */
+	static String corDoPeao(String peao) {
+		if (peao != null && peao.endsWith(SUFIXO_SEGUNDO_PEAO))
+			return peao.substring(0, peao.length() - SUFIXO_SEGUNDO_PEAO.length());
+		return peao;
+	}
+
 	/** Coloca o peao no mapa (inicio do jogo: Karakorum). */
 	boolean colocarPeao(String cor, String parada) {
 		Parada p = paradas.get(parada);
@@ -292,9 +305,10 @@ class Mapa {
 		if (!paradas.get(destino).podeReceberPeao(cor))
 			return -1;
 
+		String dono = corDoPeao(cor); // pula os yurts do jogador, mesmo com o 2o peao da Altani
 		int custo = caminho.size();
 		for (int i = 0; i < caminho.size() - 1; i++)
-			if (paradas.get(caminho.get(i)).temYurtDe(cor))
+			if (paradas.get(caminho.get(i)).temYurtDe(dono))
 				custo--;
 		return custo;
 	}
@@ -310,8 +324,9 @@ class Mapa {
 		if (custoDoCaminho(cor, caminho) < 0)
 			return visitadas;
 		visitadas.add(posicaoPeao.get(cor));
+		String dono = corDoPeao(cor);
 		for (int i = 0; i < caminho.size() - 1; i++)
-			if (!paradas.get(caminho.get(i)).temYurtDe(cor))
+			if (!paradas.get(caminho.get(i)).temYurtDe(dono))
 				visitadas.add(caminho.get(i));
 		visitadas.add(caminho.get(caminho.size() - 1));
 		return visitadas;
@@ -353,6 +368,7 @@ class Mapa {
 			return vazio;
 
 		// custo para estar em cada parada como intermediaria
+		String dono = corDoPeao(cor);
 		Map<String, Integer> custo = new HashMap<String, Integer>();
 		Map<String, String> anterior = new HashMap<String, String>();
 		custo.put(origem, 0);
@@ -363,7 +379,7 @@ class Mapa {
 				for (String v : rotas.get(u)) {
 					if (v.equals(destino) || v.equals(origem))
 						continue;
-					int c = custo.get(u) + (paradas.get(v).temYurtDe(cor) ? 0 : 1);
+					int c = custo.get(u) + (paradas.get(v).temYurtDe(dono) ? 0 : 1);
 					if (!custo.containsKey(v) || c < custo.get(v)) {
 						custo.put(v, c);
 						anterior.put(v, u);
@@ -430,11 +446,19 @@ class Mapa {
 		return -1;
 	}
 
+	/** Distancia do peao ate Karakorum; para a Altani vale o peao mais perto. */
 	int distanciaAteKarakorum(String cor) {
 		String pos = posicaoPeao.get(cor);
 		if (pos == null)
 			return -1;
-		return distancia(pos, KARAKORUM);
+		int d = distancia(pos, KARAKORUM);
+		String pos2 = posicaoPeao.get(cor + SUFIXO_SEGUNDO_PEAO);
+		if (pos2 != null) {
+			int d2 = distancia(pos2, KARAKORUM);
+			if (d2 >= 0 && (d < 0 || d2 < d))
+				d = d2;
+		}
+		return d;
 	}
 
 	// =====================================================================
@@ -456,6 +480,15 @@ class Mapa {
 		if (p == null)
 			return false;
 		return p.construirYurt(cor);
+	}
+
+	/**
+	 * Yurt inicial do Tolui em Karakorum: la normalmente nao se constroi, e ele
+	 * nao pertence a nenhuma regiao (so ajuda no movimento e nas cartas de
+	 * 6 e 10 yurts no mapa).
+	 */
+	void colocarYurtEmKarakorum(String cor) {
+		paradas.get(KARAKORUM).colocarYurtEspecial(cor);
 	}
 
 	/**
@@ -641,13 +674,18 @@ class Mapa {
 				throw new IllegalArgumentException("peao invalido: " + e.getKey() + " em " + e.getValue());
 			posicaoPeao.put(e.getKey(), e.getValue());
 		}
+		for (Parada p : paradas.values())
+			p.limparYurts();
 		for (Map.Entry<String, List<String>> e : yurts.entrySet()) {
 			Parada p = paradas.get(e.getKey());
 			if (p == null)
 				throw new IllegalArgumentException("parada inexistente: " + e.getKey());
-			for (String cor : e.getValue())
-				if (!p.construirYurt(cor))
+			for (String cor : e.getValue()) {
+				if (KARAKORUM.equals(e.getKey()))
+					p.colocarYurtEspecial(cor); // yurt inicial do Tolui
+				else if (!p.construirYurt(cor))
 					throw new IllegalArgumentException("yurts demais em " + e.getKey());
+			}
 		}
 		if (khan != null && !AREA_DE_MELHORIAS.equals(khan)) {
 			Provincia pk = provincias.get(khan);

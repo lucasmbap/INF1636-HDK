@@ -18,7 +18,12 @@ import org.junit.runners.Suite;
 	PartidaTest.class,
 	ModeloApiPartidaTest.class,
 	CartelaTest.class,
-	ModeloApiCartelaTest.class
+	ModeloApiCartelaTest.class,
+	ModeloApiConselheiroTest.class,
+	ModeloApiSalvamentoTest.class,
+	AreaDeMelhoriasTest.class,
+	ModeloApiMelhoriasTest.class,
+	ModeloApiHabilidadesTest.class
 })
 public class TodosOsTestesDoMapa {
 }

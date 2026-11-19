@@ -82,7 +82,7 @@ public class ModeloApiCartelaTest {
 	public void moedaVirtualDaColuna_pagaParteDaMelhoria() {
 		api.adicionarRecursos(idAna, TipoTributo.MOEDA, 1);
 		api.ativarColuna(ModeloApi.COLUNA_VERMELHA); // Tolui: 1 moeda virtual
-		api.comprarMelhoria("CAVALOS", ModeloApi.COLUNA_VERDE);
+		api.comprarMelhoria(4); // peca mais a direita da area, na coluna da cor dela
 		assertEquals("1 moeda virtual + 1 real pagam a melhoria", 0,
 				api.getQuantidadeRecurso(idAna, TipoTributo.MOEDA));
 	}

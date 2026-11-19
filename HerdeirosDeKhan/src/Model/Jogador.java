@@ -73,7 +73,8 @@ final class Jogador {
 		if (quantidade == 0) {
 			return;
 		}
-		recursos.merge(tipo, quantidade, Math::addExact);
+		Integer atual = recursos.get(tipo);
+		recursos.put(tipo, atual == null ? quantidade : Math.addExact(atual, quantidade));
 	}
 
 	boolean removerRecursos(TipoTributo tipo, int quantidade) {
@@ -98,7 +99,10 @@ final class Jogador {
 	}
 
 	List<String> getNomesTesouros() {
-		return tesouros.stream().map(Tesouro::getNome).toList();
+		List<String> nomes = new ArrayList<String>();
+		for (Tesouro t : tesouros)
+			nomes.add(t.getNome());
+		return nomes;
 	}
 
 	List<Tesouro> getTesouros() {
@@ -114,7 +118,10 @@ final class Jogador {
 	}
 
 	List<String> getNomesCartasConselheiro() {
-		return cartasConselheiro.stream().map(CartaConselheiro::getNome).toList();
+		List<String> nomes = new ArrayList<String>();
+		for (CartaConselheiro c : cartasConselheiro)
+			nomes.add(c.getNome());
+		return nomes;
 	}
 
 	List<CartaConselheiro> getCartasConselheiro() {
@@ -126,7 +133,10 @@ final class Jogador {
 	}
 
 	List<String> getNomesMelhorias() {
-		return melhorias.stream().map(PecaMelhoria::getNome).toList();
+		List<String> nomes = new ArrayList<String>();
+		for (PecaMelhoria m : melhorias)
+			nomes.add(m.getNome());
+		return nomes;
 	}
 
 	List<PecaMelhoria> getMelhorias() {

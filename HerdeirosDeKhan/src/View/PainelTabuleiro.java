@@ -303,7 +303,10 @@ public class PainelTabuleiro extends PainelMapa implements ObservadorIF {
 	}
 
 	private void desenharParadas(Graphics2D g) {
-		String posVez = modelo.getPosicao(modelo.getCorDaVez());
+		String posVez = modelo.getPosicaoPeaoDaVez();
+		String corVez = modelo.getCorDaVez();
+		// chave do peao da vez no mapa: a Altani pode jogar com o 2o peao ("cor#2")
+		String peaoVez = corVez != null && modelo.getPeaoEscolhido(corVez) == 2 ? corVez + "#2" : corVez;
 		for (String parada : modelo.getParadas()) {
 			Point c = CoordenadasMapa.getParada(parada);
 			if (c == null)
@@ -319,7 +322,7 @@ public class PainelTabuleiro extends PainelMapa implements ObservadorIF {
 			if (parada.equals(posVez)) { // anel em volta do pino da vez
 				Point a = c;
 				if (circulos != null)
-					a = circulos[Math.max(0, Math.min(circulos.length - 1, peoes.indexOf(modelo.getCorDaVez())))];
+					a = circulos[Math.max(0, Math.min(circulos.length - 1, peoes.indexOf(peaoVez)))];
 				g.setStroke(new BasicStroke(14));
 				g.setColor(Color.BLACK);
 				g.draw(new Ellipse2D.Double(a.x - 62, a.y - 62, 124, 124));
@@ -350,6 +353,11 @@ public class PainelTabuleiro extends PainelMapa implements ObservadorIF {
 					y = q.y - 12;
 				}
 				desenharImagem(g, Pecas.peao(Cores.de(peoes.get(i)), escala), x, y, Pecas.PEAO_W, Pecas.PEAO_H);
+				if (peoes.get(i).endsWith("#2")) { // 2o peao da Altani
+					g.setFont(new Font("SansSerif", Font.BOLD, 34));
+					g.setColor(Cores.textoSobre(Cores.de(peoes.get(i))));
+					g.drawString("2", (int) Math.round(x) - 10, (int) Math.round(y) + 4);
+				}
 			}
 		}
 	}

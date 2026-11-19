@@ -188,6 +188,18 @@ class Cartela {
 		return true;
 	}
 
+	/**
+	 * Jochi: melhoria inicial na coluna branca. Vale desde ja e conta como a
+	 * melhoria gratis da 1a linha (o espaco dela ja esta ocupado).
+	 */
+	boolean colocarMelhoriaInicial(TipoMelhoria tipo) {
+		if (getNumMelhorias(ColunaCartela.BRANCA) >= ESPACOS_POR_COLUNA)
+			return false;
+		melhorias.get(ColunaCartela.BRANCA).add(0, tipo);
+		melhoriasGratisRecebidas++;
+		return true;
+	}
+
 	private void colocar(ColunaCartela c, TipoMelhoria tipo) {
 		melhorias.get(c).add(tipo);
 		novasNoTurno.put(c, novasNoTurno.get(c) + 1);

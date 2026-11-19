@@ -23,8 +23,8 @@ import Model.ObservadoIF;
 import Model.ObservadorIF;
 
 /**
- * Primeira janela: "Nova partida" (abre a escolha de herdeiros) ou "Sair".
- * É observadora do Model: quando a partida começa, ela se fecha sozinha.
+ * Primeira janela: "Nova partida" (abre a escolha de herdeiros), "Recuperar partida" ou "Sair".
+ * E observadora do Model: quando a partida comeca, ela se fecha sozinha.
  */
 public class JanelaInicial extends JFrame implements ObservadorIF {
 	private static final long serialVersionUID = 1L;
@@ -32,7 +32,9 @@ public class JanelaInicial extends JFrame implements ObservadorIF {
 	private final ModeloApi modelo;
 	private final OuvinteInicio ouvinte;
 	private final JButton botaoNova = new JButton("Nova partida");
+	private final JButton botaoRecuperar = new JButton("Recuperar partida");
 	private final JButton botaoSair = new JButton("Sair");
+	private OuvinteArquivos ouvinteArquivos = null;
 
 	public JanelaInicial(ModeloApi modelo, OuvinteInicio ouvinte) {
 		super("Herdeiros de Khan");
@@ -47,19 +49,24 @@ public class JanelaInicial extends JFrame implements ObservadorIF {
 		botoes.setLayout(new BoxLayout(botoes, BoxLayout.Y_AXIS));
 		botoes.setBorder(BorderFactory.createEmptyBorder(0, 120, 50, 120));
 		botaoNova.setAlignmentX(CENTER_ALIGNMENT);
+		botaoRecuperar.setAlignmentX(CENTER_ALIGNMENT);
 		botaoSair.setAlignmentX(CENTER_ALIGNMENT);
+		botaoRecuperar.setMaximumSize(new Dimension(Integer.MAX_VALUE, 40));
 		botaoNova.setMaximumSize(new Dimension(Integer.MAX_VALUE, 40));
 		botaoSair.setMaximumSize(new Dimension(Integer.MAX_VALUE, 40));
 		botoes.add(botaoNova);
+		botoes.add(Box.createVerticalStrut(10));
+		botoes.add(botaoRecuperar);
 		botoes.add(Box.createVerticalStrut(10));
 		botoes.add(botaoSair);
 		fundo.add(botoes, BorderLayout.SOUTH);
 		add(fundo);
 
 		botaoNova.addActionListener(new AcaoNova());
+		botaoRecuperar.addActionListener(new AcaoRecuperar());
 		botaoSair.addActionListener(new AcaoSair());
 
-		setSize(520, 460);
+		setSize(520, 510);
 		setResizable(false);
 		setLocationRelativeTo(null);
 		modelo.add(this);
@@ -70,6 +77,18 @@ public class JanelaInicial extends JFrame implements ObservadorIF {
 		public void actionPerformed(ActionEvent e) {
 			JanelaEscolhaHerdeiros escolha = new JanelaEscolhaHerdeiros(modelo, ouvinte);
 			escolha.setVisible(true);
+		}
+	}
+
+	/** Quem le o arquivo da partida (o Main). */
+	public void setOuvinteArquivos(OuvinteArquivos ouvinte) {
+		this.ouvinteArquivos = ouvinte;
+	}
+
+	private class AcaoRecuperar implements ActionListener {
+		@Override
+		public void actionPerformed(ActionEvent e) {
+			SeletorDeArquivos.recuperar(JanelaInicial.this, ouvinteArquivos);
 		}
 	}
 
@@ -93,7 +112,7 @@ public class JanelaInicial extends JFrame implements ObservadorIF {
 		});
 	}
 
-	/** Fundo: o tabuleiro escurecido, com o título desenhado por cima. */
+	/** Fundo: o tabuleiro escurecido, com o titulo desenhado por cima. */
 	private static class PainelFundo extends JPanel {
 		private static final long serialVersionUID = 1L;
 		private final BufferedImage imagem;

@@ -10,6 +10,10 @@ import java.awt.Graphics;
 import java.awt.Graphics2D;
 import java.awt.RenderingHints;
 import java.awt.geom.RoundRectangle2D;
+import java.awt.image.BufferedImage;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 
 import javax.swing.BorderFactory;
 import javax.swing.JLabel;
@@ -32,8 +36,8 @@ import Model.ObservadorIF;
 public class JanelaCartas extends JPanel implements ObservadorIF {
 	private static final long serialVersionUID = 1L;
 
-	private static final int LARG = 156;
-	private static final int ALT = 200;
+	private static final int LARG = 140;
+	private static final int ALT = 222;
 	private static final int FOLGA = 10;
 	private static final int COLUNAS = 3;
 	private static final int TITULO_SECAO = 28;
@@ -110,6 +114,65 @@ public class JanelaCartas extends JPanel implements ObservadorIF {
 		return n;
 	}
 
+	private final Map<String, BufferedImage> cache = new HashMap<String, BufferedImage>();
+
+	/** Desenha a imagem da carta mantendo a proporcao dentro de LARG x ALT; false se nao existir. */
+	private boolean desenharImagem(Graphics2D g, String caminho, int x, int y, Color borda) {
+		BufferedImage orig = Imagens.procurar(caminho);
+		if (orig == null)
+			return false;
+		double e = Math.min((double) LARG / orig.getWidth(), (double) ALT / orig.getHeight());
+		int w = (int) Math.round(orig.getWidth() * e), h = (int) Math.round(orig.getHeight() * e);
+		String chave = caminho + "@" + w + "x" + h;
+		BufferedImage img = cache.get(chave);
+		if (img == null) {
+			img = Imagens.redimensionar(orig, w, h);
+			cache.put(chave, img);
+		}
+		int dx = x + (LARG - w) / 2, dy = y + (ALT - h) / 2;
+		g.drawImage(img, dx, dy, null);
+		g.setColor(borda);
+		g.setStroke(new BasicStroke(3));
+		g.draw(new RoundRectangle2D.Double(dx, dy, w, h, 12, 12));
+		return true;
+	}
+
+	private static String descricaoAberta(String id) {
+		switch (id) {
+		case "4_espadas": return "Ter 4 espadas (nao precisa gasta-las)";
+		case "6_yurts": return "Ter 6 yurts no mapa";
+		case "10_yurts": return "Ter 10 yurts no mapa";
+		case "4_tesouros": return "Ter 4 tesouros (nao precisa gasta-los)";
+		case "5_tesouros_diferentes": return "Ter 5 tesouros diferentes";
+		case "1_yurt_por_regiao": return "Ter 1 yurt em cada regiao";
+		case "2_yurts_por_regiao": return "Ter 2 yurts em cada regiao";
+		case "2_bonus": return "Conseguir 2 pecas de bonus";
+		case "3_bonus": return "Conseguir 3 pecas de bonus";
+		case "2_cidades": return "Conquistar 2 cidades";
+		case "3_cidades": return "Conquistar 3 cidades";
+		case "linha_completa": return "Completar uma linha de melhorias";
+		case "4_melhorias_coluna": return "Ter 4 melhorias em uma so coluna";
+		case "2_colunas_2_melhorias": return "Ter 2 colunas com 2 melhorias cada";
+		default: return id;
+		}
+	}
+
+	/** Carta aberta da mesa: imagens/carta_aberta_<id> ou, sem imagem, um cartao com o texto. */
+	private void cartaDaMesa(Graphics2D g, String id, int posicao, int yBase) {
+		int x = FOLGA + (posicao % COLUNAS) * (LARG + FOLGA);
+		int y = yBase + (posicao / COLUNAS) * (ALT + FOLGA);
+		if (desenharImagem(g, "imagens/carta_aberta_" + id, x, y, new Color(212, 175, 55)))
+			return;
+		g.setColor(new Color(245, 235, 205));
+		g.fill(new RoundRectangle2D.Double(x, y, LARG, ALT, 16, 16));
+		g.setColor(new Color(212, 175, 55));
+		g.setStroke(new BasicStroke(4));
+		g.draw(new RoundRectangle2D.Double(x, y, LARG, ALT, 16, 16));
+		g.setColor(new Color(40, 25, 10));
+		g.setFont(new Font("SansSerif", Font.BOLD, 13));
+		quebrar(g, descricaoAberta(id), x + 10, y + 30, LARG - 20, 18, 8);
+	}
+
 	private class PainelCartas extends JPanel {
 		private static final long serialVersionUID = 1L;
 
@@ -119,7 +182,7 @@ public class JanelaCartas extends JPanel implements ObservadorIF {
 
 		void recalcular(int idVez) {
 			int minhas = idVez < 0 ? 0 : modelo.getQuantidadeCartasConselheiro(idVez);
-			int outras = idVez < 0 ? 0 : quantidadeAbertasDosOutros(idVez);
+			int outras = idVez < 0 ? 0 : modelo.getCartasAbertasNaMesa().size();
 			int altura = TITULO_SECAO + Math.max(1, linhas(minhas)) * (ALT + FOLGA) + TITULO_SECAO
 					+ Math.max(1, linhas(outras)) * (ALT + FOLGA) + FOLGA;
 			setPreferredSize(new Dimension(COLUNAS * (LARG + FOLGA) + FOLGA, altura));
@@ -147,20 +210,13 @@ public class JanelaCartas extends JPanel implements ObservadorIF {
 				carta(g, idVez, i, i, y, Cores.de(modelo.getCorJogador(idVez)), false);
 			y += Math.max(1, linhas(n)) * (ALT + FOLGA);
 
-			secao(g, "Cartas abertas dos outros jogadores", y);
+			secao(g, "Cartas abertas na mesa (1 voto para o 1o que cumprir)", y);
 			y += TITULO_SECAO;
-			int posicao = 0;
-			for (int id = 1; id <= totalJogadores(); id++) {
-				if (id == idVez)
-					continue;
-				for (int i = 0; i < modelo.getQuantidadeCartasConselheiro(id); i++) {
-					if (!modelo.isCartaConselheiroAberta(id, i))
-						continue; // as secretas dos outros nunca sao mostradas
-					carta(g, id, i, posicao++, y, Cores.de(modelo.getCorJogador(id)), true);
-				}
-			}
-			if (posicao == 0)
-				vazio(g, "Nenhum outro jogador tem carta aberta.", y);
+			List<String> mesa = modelo.getCartasAbertasNaMesa();
+			for (int i = 0; i < mesa.size(); i++)
+				cartaDaMesa(g, mesa.get(i), i, y);
+			if (mesa.isEmpty())
+				vazio(g, "Todas as cartas abertas ja foram cumpridas.", y);
 			g.dispose();
 		}
 
@@ -188,6 +244,17 @@ public class JanelaCartas extends JPanel implements ObservadorIF {
 
 	private void desenharCarta(Graphics2D g, int x, int y, String nome, String condicao, String recompensa,
 			boolean aberta, Color dono, String nomeDono) {
+		if (desenharImagem(g, "imagens/carta_" + Imagens.nomeDeArquivo(nome), x, y, dono)) {
+			if (nomeDono != null) {
+				g.setFont(new Font("SansSerif", Font.BOLD, 10));
+				FontMetrics fm0 = g.getFontMetrics();
+				g.setColor(new Color(0, 0, 0, 170));
+				g.fillRect(x + LARG - fm0.stringWidth(nomeDono) - 12, y + 4, fm0.stringWidth(nomeDono) + 8, 14);
+				g.setColor(Color.WHITE);
+				g.drawString(nomeDono, x + LARG - fm0.stringWidth(nomeDono) - 8, y + 15);
+			}
+			return;
+		}
 		Color fundo = aberta ? new Color(245, 235, 205) : new Color(70, 45, 95);
 		Color texto = aberta ? new Color(40, 25, 10) : new Color(240, 230, 250);
 		g.setColor(fundo);

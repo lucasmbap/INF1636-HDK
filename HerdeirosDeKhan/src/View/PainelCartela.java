@@ -9,6 +9,7 @@ import java.awt.Graphics2D;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
 import java.awt.geom.RoundRectangle2D;
+import java.awt.image.BufferedImage;
 import java.util.List;
 
 import Model.ModeloApi;
@@ -95,32 +96,76 @@ class PainelCartela extends PainelImagem {
 			int y1 = py(BASE_COLUNA);
 
 			if (modelo.isColunaOcupada(cor, c)) {
-				g.setColor(new Color(0, 0, 0, 150));
+				// coluna usada: a peca de ativacao do jogador (o emblema do herdeiro) fica na casa de baixo
+				g.setColor(new Color(0, 0, 0, 70));
 				g.fillRect(x0, y0, x1 - x0, y1 - y0);
-				g.setColor(Color.WHITE);
-				g.setFont(new Font("SansSerif", Font.BOLD, Math.max(11, imgW / 70)));
-				FontMetrics fm = g.getFontMetrics();
-				String t = "OCUPADA";
-				g.drawString(t, (x0 + x1 - fm.stringWidth(t)) / 2, (y0 + y1) / 2);
+				desenharPecaDeAtivacao(g, (x0 + x1) / 2, py(1275), (int) ((x1 - x0) * 0.30));
 			}
 
 			List<String> melhorias = modelo.getMelhoriasDaColuna(cor, c);
 			for (int k = 0; k < melhorias.size() && k < LINHAS_Y.length; k++) {
 				int linha = LINHAS_Y.length - 1 - k; // a primeira melhoria fica embaixo
-				desenharMelhoria(g, melhorias.get(k), px(COLUNAS_X[c][0] + 14), py(LINHAS_Y[linha][0] + 14),
+				desenharMelhoria(g, melhorias.get(k), c, px(COLUNAS_X[c][0] + 14), py(LINHAS_Y[linha][0] + 14),
 						px(COLUNAS_X[c][1] - 14) - px(COLUNAS_X[c][0] + 14),
 						py(LINHAS_Y[linha][1] - 14) - py(LINHAS_Y[linha][0] + 14));
 			}
 
-			if (c == ativada) {
-				g.setColor(new Color(255, 215, 0));
-				g.setStroke(new BasicStroke(5f));
-				g.drawRect(x0, y0, x1 - x0, y1 - y0);
-			}
 		}
 	}
 
-	private void desenharMelhoria(Graphics2D g, String nome, int x, int y, int w, int h) {
+	/** Peca de ativacao: o emblema do herdeiro do jogador da vez, redondo (imagens/marcador_<herdeiro>). */
+	private void desenharPecaDeAtivacao(Graphics2D g, int cx, int cy, int d) {
+		int id = modelo.getIdJogadorDaVez();
+		String herdeiro = id >= 0 ? modelo.getHerdeiro(id) : null;
+		java.awt.image.BufferedImage img = herdeiro == null ? null
+				: Imagens.procurar("imagens/marcador_" + Imagens.nomeDeArquivo(herdeiro));
+		java.awt.Shape clip = g.getClip();
+		if (img != null) {
+			g.clip(new java.awt.geom.Ellipse2D.Double(cx - d / 2.0, cy - d / 2.0, d, d));
+			g.drawImage(Imagens.redimensionar(img, d, d), cx - d / 2, cy - d / 2, d, d, null);
+			g.setClip(clip);
+		} else {
+			g.setColor(Color.WHITE);
+			g.fillOval(cx - d / 2, cy - d / 2, d, d);
+		}
+		g.setColor(Color.WHITE);
+		g.setStroke(new BasicStroke(3f));
+		g.drawOval(cx - d / 2, cy - d / 2, d, d);
+	}
+
+	private static final String[] COR_DA_COLUNA = { "vermelha", "verde", "amarela", null };
+
+	/**
+	 * Cada peca de melhoria tem uma cor por regiao (manual, pag. 11): imagens/melhoria_<tipo>_<cor>
+	 * (cor = vermelha, verde ou amarela). Na coluna branca vale qualquer cor. Se nao houver a imagem
+	 * da cor, usa imagens/melhoria_<tipo> (sem cor) e, por fim, qualquer cor que existir.
+	 */
+	private BufferedImage imagemDaMelhoria(String nome, int coluna) {
+		String base = "imagens/melhoria_" + Imagens.nomeDeArquivo(nome);
+		String cor = coluna >= 0 && coluna < COR_DA_COLUNA.length ? COR_DA_COLUNA[coluna] : null;
+		if (cor != null) {
+			BufferedImage img = Imagens.silenciosa(base + "_" + cor);
+			if (img != null)
+				return img;
+		}
+		BufferedImage img = Imagens.silenciosa(base);
+		if (img != null)
+			return img;
+		for (String c : COR_DA_COLUNA)
+			if (c != null && (img = Imagens.silenciosa(base + "_" + c)) != null)
+				return img;
+		return Imagens.procurar(base); // so para avisar no console qual arquivo falta
+	}
+
+	private void desenharMelhoria(Graphics2D g, String nome, int coluna, int x, int y, int w, int h) {
+		BufferedImage img = imagemDaMelhoria(nome, coluna);
+		if (img != null) {
+			double e = Math.min((double) w / img.getWidth(), (double) h / img.getHeight());
+			int iw = Math.max(1, (int) Math.round(img.getWidth() * e));
+			int ih = Math.max(1, (int) Math.round(img.getHeight() * e));
+			g.drawImage(Imagens.redimensionar(img, iw, ih), x + (w - iw) / 2, y + (h - ih) / 2, null);
+			return;
+		}
 		g.setColor(new Color(255, 255, 255, 215));
 		g.fill(new RoundRectangle2D.Double(x, y, w, h, 12, 12));
 		g.setColor(new Color(60, 35, 10));

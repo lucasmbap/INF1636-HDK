@@ -30,6 +30,12 @@ class Partida {
 	private final Map<String, Jogador> jogadores = new HashMap<String, Jogador>();
 	private final List<String> ordem = new ArrayList<String>();
 	private final Set<String> conselheirosComBonus = new HashSet<String>();
+	/** As 14 cartas de conselheiro aberto do manual (pag. 18); 4 sorteadas ficam na mesa em cada partida. */
+	static final String[] TODAS_CARTAS_ABERTAS = { "4_espadas", "6_yurts", "10_yurts", "4_tesouros",
+			"5_tesouros_diferentes", "1_yurt_por_regiao", "2_yurts_por_regiao", "2_bonus", "3_bonus", "2_cidades",
+			"3_cidades", "linha_completa", "4_melhorias_coluna", "2_colunas_2_melhorias" };
+	private List<String> cartasAbertas = new ArrayList<String>();
+	private Map<String, Integer> bonusPorJogador = new HashMap<String, Integer>();
 	private final Deque<String> cidadesFechadas;
 	private final Deque<Tesouro> pilhaTesouros;
 
@@ -79,6 +85,9 @@ class Partida {
 			mapa.colocarPeao(j.getCor(), Mapa.KARAKORUM);
 		}
 		this.limiteVotos = LIMITE_VOTOS[n];
+		List<String> todas = new ArrayList<String>(java.util.Arrays.asList(TODAS_CARTAS_ABERTAS));
+		java.util.Collections.shuffle(todas);
+		this.cartasAbertas = new ArrayList<String>(todas.subList(0, 4));
 	}
 
 	// =====================================================================
@@ -268,8 +277,11 @@ class Partida {
 		int votos = "Karakorum".equals(parada) ? 2 : 1;
 		for (int i = 0; i < votos; i++)
 			ganharVoto(getCorAtual());
-		if (conselheirosComBonus.add(parada))
-			jogador.adicionarRecursos(TipoTributo.MOEDA, 1);
+		if (conselheirosComBonus.add(parada)) {
+			jogador.adicionarRecursos(TipoTributo.MOEDA, 2); // peca de bonus: 2 moedas (manual, pag. 13)
+			Integer antes = bonusPorJogador.get(getCorAtual());
+			bonusPorJogador.put(getCorAtual(), antes == null ? 1 : antes + 1);
+		}
 		return true;
 	}
 
@@ -545,5 +557,187 @@ class Partida {
 			if (criterio.applyAsInt(c) == melhor)
 				resultado.add(c);
 		return resultado;
+	}
+
+	// =====================================================================
+	// Salvar e recuperar a partida
+	// =====================================================================
+
+	int getIndiceAtual() {
+		return indiceAtual;
+	}
+
+	boolean isUltimaRodada() {
+		return ultimaRodada;
+	}
+
+	boolean isPontuada() {
+		return pontuada;
+	}
+
+	List<String> getConselheirosComBonus() {
+		List<String> lst = new ArrayList<String>(conselheirosComBonus);
+		java.util.Collections.sort(lst);
+		return lst;
+	}
+
+	/** Cidades ainda fechadas, na ordem em que serao reveladas. */
+	List<String> getCidadesFechadas() {
+		return new ArrayList<String>(cidadesFechadas);
+	}
+
+	/** Tesouros que restam na pilha, na ordem em que serao tirados. */
+	List<Tesouro> getPilhaTesouros() {
+		return new ArrayList<Tesouro>(pilhaTesouros);
+	}
+
+	Map<String, Integer> getTesourosTomadosNoTurno() {
+		return new HashMap<String, Integer>(tesourosTomadosNoTurno);
+	}
+
+	/** Copia dos recursos virtuais deste turno. */
+	Map<TipoTributo, Integer> getVirtuais() {
+		return new HashMap<TipoTributo, Integer>(virtuais);
+	}
+
+	/** Refaz o estado da partida a partir de um arquivo salvo (lanca IllegalArgumentException se invalido). */
+	void restaurar(int indice, int votos, boolean fim, boolean ultima, boolean terminada, boolean pontuou,
+			List<String> bonus, boolean ativo, int mov, int pun, List<String> paradasVisitadas,
+			Map<String, Integer> tomados, ColunaCartela coluna, boolean khan, Map<TipoTributo, Integer> virt,
+			List<String> tesVirt) {
+		if (indice < 0 || indice >= ordem.size() || votos < 0 || mov < 0 || pun < 0)
+			throw new IllegalArgumentException("estado da partida invalido");
+		this.indiceAtual = indice;
+		this.votosNeutra = votos;
+		this.fimDisparado = fim;
+		this.ultimaRodada = ultima;
+		this.encerrada = terminada;
+		this.pontuada = pontuou;
+		this.conselheirosComBonus.clear();
+		this.conselheirosComBonus.addAll(bonus);
+		this.turnoAtivo = ativo;
+		this.movimentos = mov;
+		this.punhos = pun;
+		this.visitadas = new ArrayList<String>(paradasVisitadas);
+		this.tesourosTomadosNoTurno = new HashMap<String, Integer>(tomados);
+		this.colunaAtivada = coluna;
+		this.khanPendente = khan;
+		this.virtuais = new HashMap<TipoTributo, Integer>(virt);
+		this.tesourosVirtuais = new ArrayList<String>(tesVirt);
+	}
+
+	// =====================================================================
+	// Cartas de conselheiro aberto (manual, pag. 13 e 18)
+	// =====================================================================
+
+	List<String> getCartasAbertas() {
+		return new ArrayList<String>(cartasAbertas);
+	}
+
+	Map<String, Integer> getBonusPorJogador() {
+		return new HashMap<String, Integer>(bonusPorJogador);
+	}
+
+	void restaurarCartasAbertas(List<String> cartas, Map<String, Integer> bonus) {
+		for (String c : cartas)
+			if (!java.util.Arrays.asList(TODAS_CARTAS_ABERTAS).contains(c))
+				throw new IllegalArgumentException("carta aberta desconhecida: " + c);
+		this.cartasAbertas = new ArrayList<String>(cartas);
+		this.bonusPorJogador = new HashMap<String, Integer>(bonus);
+	}
+
+	/**
+	 * Em qualquer momento do turno, quem cumpre a demanda de uma carta aberta ganha 1 voto e a carta sai
+	 * do jogo (sem carta nova). So o primeiro a cumprir leva o voto.
+	 */
+	void verificarCartasAbertas() {
+		if (encerrada || !turnoAtivo)
+			return;
+		String cor = getCorAtual();
+		for (String carta : new ArrayList<String>(cartasAbertas))
+			if (cartaAbertaCumprida(carta, cor)) {
+				cartasAbertas.remove(carta);
+				ganharVoto(cor);
+			}
+	}
+
+	private int yurtsDe(String cor, String prefixo) {
+		int n = 0;
+		for (String parada : mapa.getNomesParadasOrdenados()) {
+			if (prefixo != null && !parada.startsWith(prefixo))
+				continue;
+			for (String c : mapa.getYurtsNaParada(parada))
+				if (cor.equals(c))
+					n++;
+		}
+		return n;
+	}
+
+	private int cidadesDe(String cor) {
+		int n = 0;
+		for (String nome : mapa.getNomesCidades())
+			if (cor.equals(mapa.getCidade(nome).getConquistador()))
+				n++;
+		return n;
+	}
+
+	private int melhoriasNaColuna(Cartela ct, ColunaCartela c) {
+		int n = 0;
+		for (TipoMelhoria t : ct.getMelhorias(c))
+			if (t != null)
+				n++;
+		return n;
+	}
+
+	private boolean cartaAbertaCumprida(String carta, String cor) {
+		Jogador j = jogadores.get(cor);
+		Cartela ct = cartelas.get(cor);
+		switch (carta) {
+		case "4_espadas":
+			return j.getQuantidadeRecurso(TipoTributo.ESPADA) >= 4;
+		case "6_yurts":
+			return yurtsDe(cor, null) >= 6;
+		case "10_yurts":
+			return yurtsDe(cor, null) >= 10;
+		case "4_tesouros":
+			return j.getTesouros().size() >= 4;
+		case "5_tesouros_diferentes": {
+			java.util.Set<String> tipos = new java.util.HashSet<String>(j.getNomesTesouros());
+			return tipos.size() >= 5;
+		}
+		case "1_yurt_por_regiao":
+			return yurtsDe(cor, "R") >= 1 && yurtsDe(cor, "C") >= 1 && yurtsDe(cor, "P") >= 1;
+		case "2_yurts_por_regiao":
+			return yurtsDe(cor, "R") >= 2 && yurtsDe(cor, "C") >= 2 && yurtsDe(cor, "P") >= 2;
+		case "2_bonus":
+			return bonusDe(cor) >= 2;
+		case "3_bonus":
+			return bonusDe(cor) >= 3;
+		case "2_cidades":
+			return cidadesDe(cor) >= 2;
+		case "3_cidades":
+			return cidadesDe(cor) >= 3;
+		case "linha_completa":
+			return ct.getMelhoriasGratisRecebidas() >= 1;
+		case "4_melhorias_coluna":
+			for (ColunaCartela c : ColunaCartela.values())
+				if (melhoriasNaColuna(ct, c) >= 4)
+					return true;
+			return false;
+		case "2_colunas_2_melhorias": {
+			int colunas = 0;
+			for (ColunaCartela c : ColunaCartela.values())
+				if (melhoriasNaColuna(ct, c) >= 2)
+					colunas++;
+			return colunas >= 2;
+		}
+		default:
+			return false;
+		}
+	}
+
+	private int bonusDe(String cor) {
+		Integer n = bonusPorJogador.get(cor);
+		return n == null ? 0 : n;
 	}
 }

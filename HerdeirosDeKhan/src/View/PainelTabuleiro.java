@@ -15,19 +15,20 @@ import java.awt.image.BufferedImage;
 import java.util.List;
 
 import Model.ModeloApi;
+import Model.ObservadoIF;
 import Model.ObservadorIF;
 
 /**
  * Componente do tabuleiro: desenha a imagem, os tributos, yurts, pinos, o Khan
  * e as cidades conquistadas, tudo com drawImage, e a faixa do jogador da vez.
  *
- * Esta classe só LÊ o Model. Quem trata os cliques é o Controller
+ * Esta classe so LE o Model. Quem trata os cliques e o Controller
  * (Controller.Main.iniciar recebe este componente e registra o MouseListener).
  */
 public class PainelTabuleiro extends PainelMapa implements ObservadorIF {
 	private static final long serialVersionUID = 1L;
 
-	/** Cada jogador tem 12 yurts (mesmo valor de Partida.MAX_YURTS, que não é público). */
+	/** Cada jogador tem 12 yurts (mesmo valor de Partida.MAX_YURTS, que nao e publico). */
 	public static final int MAX_YURTS = 12;
 
 	private static final int ALTURA_FAIXA = 22;
@@ -41,8 +42,13 @@ public class PainelTabuleiro extends PainelMapa implements ObservadorIF {
 		modelo.add(this);
 	}
 
+	/** Deixa de observar o Model (quando a janela do jogo e fechada para comecar outra partida). */
+	public void desregistrar() {
+		modelo.remove(this);
+	}
+
 	@Override
-	public void notify(Model.ObservadoIF o) {
+	public void notify(ObservadoIF o) {
 		repaint();
 	}
 
@@ -55,8 +61,13 @@ public class PainelTabuleiro extends PainelMapa implements ObservadorIF {
 		if (modelo.isPartidaIniciada()) {
 			desenharTributos(g);
 			desenharCidades(g);
+			desenharTesouros(g);
 			desenharParadas(g);
 			desenharKhan(g);
+			desenharAreaDeMelhorias(g);
+			desenharTrilhaDeVotos(g);
+			desenharExigenciaDeKarakorum(g);
+			desenharBonus(g);
 		}
 		g.dispose();
 
@@ -68,7 +79,7 @@ public class PainelTabuleiro extends PainelMapa implements ObservadorIF {
 	}
 
 	// ------------------------------------------------------------------
-	// Elementos do mapa (g já está em coordenadas da imagem de referência)
+	// Elementos do mapa (g ja esta em coordenadas da imagem de referencia)
 	// ------------------------------------------------------------------
 
 	/** Desenha a imagem centrada em (cx, cy), ocupando w x h unidades do tabuleiro. */
@@ -89,8 +100,24 @@ public class PainelTabuleiro extends PainelMapa implements ObservadorIF {
 		}
 	}
 
+	/** Tesouros que ainda restam em cada cidade revelada, em fileira abaixo do nome da cidade. */
+	private void desenharTesouros(Graphics2D g) {
+		for (String cidade : modelo.getCidades()) {
+			Point c = CoordenadasMapa.getCidade(cidade);
+			if (c == null)
+				continue;
+			List<String> lista = modelo.getTesourosDaCidade(cidade);
+			int n = lista.size();
+			for (int i = 0; i < n; i++) {
+				double x = c.x + (i - (n - 1) / 2.0) * 58;
+				int d = Pecas.TESOURO_D;
+				desenharImagem(g, Pecas.tesouro(lista.get(i), escala), x, c.y + 100, d, d);
+			}
+		}
+	}
+
 	/**
-	 * Peças de tributo de cada província: ficam empilhadas sobre o ícone impresso
+	 * Pecas de tributo de cada provincia: ficam empilhadas sobre o icone impresso
 	 * (de 1 a 3), com um selo mostrando a quantidade.
 	 */
 	private void desenharTributos(Graphics2D g) {
@@ -119,7 +146,7 @@ public class PainelTabuleiro extends PainelMapa implements ObservadorIF {
 		}
 	}
 
-	/** Tipo de tributo da província: usa o tipo do Model e, se não reconhecer, o prefixo do nome. */
+	/** Tipo de tributo da provincia: usa o tipo do Model e, se nao reconhecer, o prefixo do nome. */
 	private String tipoTributo(String provincia) {
 		Object t = modelo.getTipoTributo(provincia);
 		String r = classificar(t == null ? null : t.toString());
@@ -141,7 +168,130 @@ public class PainelTabuleiro extends PainelMapa implements ObservadorIF {
 		return null;
 	}
 
-	/** O Khan é um pino branco, igual aos dos jogadores, sobre a cabeça impressa onde ele está. */
+	// ------------------------------------------------------------------
+	// Espacos do tabuleiro que ficavam vazios: cidades fechadas, area de melhorias e trilha de votos
+	// (coordenadas medidas na imagem de referencia 2564 x 2576)
+	// ------------------------------------------------------------------
+
+	/** Desenha a imagem (procurada em imagens/) dentro do retangulo, sem distorcer. Devolve false se nao existe. */
+	private boolean desenharCarta(Graphics2D g, String nomeSemExtensao, double cx, double cy, double w, double h) {
+		BufferedImage img = Imagens.procurar(nomeSemExtensao);
+		if (img == null)
+			return false;
+		double e = Math.min(w / img.getWidth(), h / img.getHeight());
+		int iw = Math.max(1, (int) Math.round(img.getWidth() * e * escala));
+		int ih = Math.max(1, (int) Math.round(img.getHeight() * e * escala));
+		BufferedImage pronta = Imagens.redimensionar(img, iw, ih);
+		g.drawImage(pronta, (int) Math.round(cx - img.getWidth() * e / 2), (int) Math.round(cy - img.getHeight() * e / 2),
+				(int) Math.round(img.getWidth() * e), (int) Math.round(img.getHeight() * e), null);
+		return true;
+	}
+
+	// as 5 casas retangulares da faixa de melhorias (esquerda, rodape)
+	private static final int[] AREA_X = { 268, 501, 733, 965, 1198 };
+	private static final int AREA_Y = 2471;
+	private static final int AREA_W = 190;
+	private static final int AREA_H = 100;
+	private static final String[] AREA_TIPOS = { "punho", "moeda", "cavalos", "espada", "yurt" };
+
+	/** As 5 pecas de melhoria que podem ser compradas ficam nas casas da area de melhorias. */
+	private void desenharAreaDeMelhorias(Graphics2D g) {
+		for (int i = 0; i < AREA_X.length; i++) {
+			// usa imagens/melhoria_<tipo>; se so existirem as versoes coloridas, usa a primeira que achar
+			String base = "imagens/melhoria_" + AREA_TIPOS[i];
+			String[] candidatos = { base, base + "_amarela", base + "_verde", base + "_vermelha" };
+			for (String c : candidatos)
+				if (Imagens.silenciosa(c) != null) {
+					desenharCarta(g, c, AREA_X[i], AREA_Y, AREA_W, AREA_H);
+					break;
+				}
+		}
+	}
+
+	// trilha de votos (0 votos = marcadores na largada, a esquerda da 1a casa): 10 casas em cima (esq -> dir) e 7 embaixo (dir -> esq), 1 a 17 votos
+	private static final int VOTO_MAX = 17;
+	private static final double VOTO_D = 118;
+
+	private static Point casaDoVoto(int v) {
+		if (v <= 10)
+			return new Point((int) Math.round(1010 + 164.7 * (v - 1)), 2322);
+		return new Point((int) Math.round(2404 - 164.3 * (v - 11)), 2466);
+	}
+
+	/** Um marcador (com a imagem do herdeiro) para cada jogador, na casa do total de votos dele. */
+	private void desenharTrilhaDeVotos(Graphics2D g) {
+		java.util.Map<Integer, Integer> noMesmoLugar = new java.util.HashMap<Integer, Integer>();
+		for (String cor : modelo.getCores()) {
+			int id = idDaCor(cor);
+			if (id < 0)
+				continue;
+			int votos = Math.min(VOTO_MAX, modelo.getVotos(id));
+			if (votos < 1) {
+				// sem votos: so um circulo, da cor do jogador, na 1a casa (todos juntos, um sobre o outro)
+				Point p0 = casaDoVoto(1);
+				g.setColor(Cores.de(cor));
+				g.fill(new Ellipse2D.Double(p0.x - VOTO_D / 2, p0.y - VOTO_D / 2, VOTO_D, VOTO_D));
+				continue;
+			}
+			Point p = casaDoVoto(votos);
+			double x = p.x, y = p.y; // marcadores na mesma casa ficam exatamente um sobre o outro
+			String herdeiro = modelo.getHerdeiro(id);
+			g.setColor(Cores.de(cor));
+			g.fill(new Ellipse2D.Double(x - VOTO_D / 2 - 8, y - VOTO_D / 2 - 8, VOTO_D + 16, VOTO_D + 16));
+			java.awt.Shape clipAntigo = g.getClip();
+			g.clip(new Ellipse2D.Double(x - VOTO_D / 2, y - VOTO_D / 2, VOTO_D, VOTO_D)); // marcador redondo
+			boolean achou = desenharCarta(g, "imagens/marcador_" + Imagens.nomeDeArquivo(herdeiro), x, y, VOTO_D,
+					VOTO_D);
+			g.setClip(clipAntigo);
+			if (!achou) {
+				g.setColor(Color.WHITE);
+				g.fill(new Ellipse2D.Double(x - VOTO_D / 2, y - VOTO_D / 2, VOTO_D, VOTO_D));
+			}
+		}
+	}
+
+	// as 3 casas dos tesouros exigidos no pergaminho impresso de Karakorum (imagem de referencia)
+	private static final int[][] KARAKORUM_TESOUROS = { { 1144, 997 }, { 1106, 1070 }, { 1190, 1073 } };
+
+	/**
+	 * A peca de Karakorum sorteia 3 tesouros diferentes a cada partida; o tabuleiro impresso so mostra
+	 * um exemplo. Cobrimos os 3 icones impressos com os tesouros realmente exigidos nesta partida.
+	 */
+	private void desenharExigenciaDeKarakorum(Graphics2D g) {
+		List<String> exigidos = modelo.getTesourosExigidosEmKarakorum();
+		for (int i = 0; i < exigidos.size() && i < KARAKORUM_TESOUROS.length; i++) {
+			int d = Pecas.TESOURO_D;
+			desenharImagem(g, Pecas.tesouro(exigidos.get(i), escala), KARAKORUM_TESOUROS[i][0],
+					KARAKORUM_TESOUROS[i][1], d + 18, d + 18);
+		}
+	}
+
+	// quadrados com a "1" no tabuleiro, um por conselheiro (centro na imagem de referencia 2564 x 2576)
+	private static final String[] BONUS_PARADA = { "R2", "R11", "C5", "C10", "P1", "P8", "Karakorum" };
+	private static final int[][] BONUS_XY = { { 1192, 157 }, { 2123, 224 }, { 2433, 1480 }, { 1491, 2136 },
+			{ 207, 905 }, { 637, 1844 }, { 1281, 1236 } };
+	private static final int BONUS_D = 150;
+
+	/** A peca de bonus (2 moedas) cobre o quadrado do conselheiro ate o primeiro jogador entregar tesouros a ele. */
+	private void desenharBonus(Graphics2D g) {
+		for (int i = 0; i < BONUS_PARADA.length; i++)
+			if (modelo.isBonusDisponivel(BONUS_PARADA[i]))
+				desenharCarta(g, "imagens/bonus_moedas", BONUS_XY[i][0], BONUS_XY[i][1], BONUS_D, BONUS_D);
+	}
+
+	private int idDaCor(String cor) {
+		for (int id = 1; id <= 12; id++) {
+			try {
+				if (cor.equals(modelo.getCorJogador(id)))
+					return id;
+			} catch (RuntimeException e) {
+				// id inexistente
+			}
+		}
+		return -1;
+	}
+
+	/** O Khan e um pino branco, igual aos dos jogadores, sobre a cabeca impressa onde ele esta. */
 	private void desenharKhan(Graphics2D g) {
 		String pos = modelo.getPosicaoKhan();
 		if (pos == null)
@@ -160,7 +310,7 @@ public class PainelTabuleiro extends PainelMapa implements ObservadorIF {
 				continue;
 
 			boolean karakorum = parada.equals("Karakorum");
-			// paradas duplas: cada pino/yurt vai sobre um dos 2 círculos impressos (não entre eles)
+			// paradas duplas: cada pino/yurt vai sobre um dos 2 circulos impressos (nao entre eles)
 			Point[] circulos = PosicoesDuplas.circulos(parada);
 
 			List<String> peoes = modelo.getPeoesNaParada(parada);
@@ -208,7 +358,7 @@ public class PainelTabuleiro extends PainelMapa implements ObservadorIF {
 	// Faixa do jogador da vez (em pixels do painel, sobre a borda de cima do tabuleiro)
 	// ------------------------------------------------------------------
 
-	/** Quantos yurts do jogador já estão no mapa (em paradas ou no centro de cidades conquistadas). */
+	/** Quantos yurts do jogador ja estao no mapa (em paradas ou no centro de cidades conquistadas). */
 	private int yurtsNoMapa(String cor) {
 		int n = 0;
 		for (String parada : modelo.getParadas())
@@ -223,8 +373,8 @@ public class PainelTabuleiro extends PainelMapa implements ObservadorIF {
 
 	/**
 	 * Indica o jogador da vez pela cor da faixa e por texto, direto no tabuleiro
-	 * (sem JOptionPane), e mostra as 12 peças de yurt dele: cheias = na reserva,
-	 * apagadas = já colocadas no mapa.
+	 * (sem JOptionPane), e mostra as 12 pecas de yurt dele: cheias = na reserva,
+	 * apagadas = ja colocadas no mapa.
 	 */
 	private void desenharFaixaDaVez(Graphics2D g) {
 		if (!modelo.isPartidaIniciada() || escala <= 0)
@@ -254,7 +404,7 @@ public class PainelTabuleiro extends PainelMapa implements ObservadorIF {
 				+ "   |   Movimentos restantes: " + modelo.getMovimentosRestantes() + votos, x0 + 10,
 				y0 + ALTURA_FAIXA / 2 + 5);
 
-		// reserva de yurts: 12 peças redondas da cor do jogador
+		// reserva de yurts: 12 pecas redondas da cor do jogador
 		int noMapa = Math.min(MAX_YURTS, yurtsNoMapa(cor));
 		int reserva = MAX_YURTS - noMapa;
 		int passo = DIAMETRO_RESERVA + 3;

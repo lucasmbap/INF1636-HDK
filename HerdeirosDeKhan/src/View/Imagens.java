@@ -5,6 +5,7 @@ import java.awt.Graphics2D;
 import java.awt.image.BufferedImage;
 import java.io.File;
 import java.io.IOException;
+import java.text.Normalizer;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -30,6 +31,45 @@ public final class Imagens {
 		}
 		cache.put(caminho, img);
 		return img;
+	}
+
+	private static final String[] EXTENSOES = { ".png", ".jpg", ".jpeg" };
+
+	/**
+	 * Procura imagens/<nome>.png, .jpg ou .jpeg (o caminho vem sem extensao). Devolve null se
+	 * nao achar e avisa UMA vez no console qual arquivo faltou, para facilitar achar o nome certo.
+	 */
+	public static BufferedImage procurar(String semExtensao) {
+		for (String ext : EXTENSOES) {
+			BufferedImage img = carregar(semExtensao + ext);
+			if (img != null)
+				return img;
+		}
+		if (!avisados.containsKey(semExtensao)) {
+			avisados.put(semExtensao, Boolean.TRUE);
+			System.out.println("[imagens] nao encontrada: " + semExtensao + ".png (ou .jpg)");
+		}
+		return null;
+	}
+
+	/** Como procurar, mas sem avisar no console quando nao acha. */
+	public static BufferedImage silenciosa(String semExtensao) {
+		for (String ext : EXTENSOES) {
+			BufferedImage img = carregar(semExtensao + ext);
+			if (img != null)
+				return img;
+		}
+		return null;
+	}
+
+	private static final Map<String, Boolean> avisados = new HashMap<String, Boolean>();
+
+	/** "Conselheiro de Rússia" -> "conselheiro_de_russia": minusculas, sem acento, so letras e numeros. */
+	public static String nomeDeArquivo(String texto) {
+		if (texto == null)
+			return "";
+		String t = Normalizer.normalize(texto, Normalizer.Form.NFD).replaceAll("\\p{M}", "").toLowerCase();
+		return t.replaceAll("[^a-z0-9]+", "_").replaceAll("^_+|_+$", "");
 	}
 
 	/** Reducao em passos de metade (melhor qualidade do que um unico drawImage grande). */

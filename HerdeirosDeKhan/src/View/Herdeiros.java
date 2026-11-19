@@ -7,7 +7,7 @@ public final class Herdeiros {
 	public static final String[] NOMES = { "Jochi", "Chagatai", "Tolui", "Altani", "Ogedei" };
 
 	/** Cores que o jogador pode escolher (nomes entendidos por Cores.de). */
-	public static final String[] CORES = { "vermelho", "azul", "verde", "amarelo", "roxo" };
+	public static final String[] CORES = { "vermelho", "azul", "verde", "amarelo", "preto" };
 
 	private Herdeiros() {
 	}

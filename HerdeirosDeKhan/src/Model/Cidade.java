@@ -75,4 +75,11 @@ class Cidade {
 			conquistador = cor;
 		return true;
 	}
+
+	/** Recupera o estado salvo da cidade (usado ao recuperar uma partida). */
+	void restaurar(boolean revelada, List<Tesouro> tesouros, String conquistador) {
+		this.revelada = revelada;
+		this.tesouros = new ArrayList<Tesouro>(tesouros);
+		this.conquistador = conquistador;
+	}
 }

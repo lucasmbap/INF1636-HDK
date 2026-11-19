@@ -1,5 +1,7 @@
 package Model;
 
+import java.io.File;
+import java.io.IOException;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -255,14 +257,17 @@ public final class ModeloApi implements ObservadoIF {
 			for (String t : PecaKarakorum.TIPOS_TESOURO)
 				pilha.add(new Tesouro(t));
 		Deque<String> fechadas = new ArrayDeque<String>();
+		// as cidades sao sorteadas: as 3 primeiras ja comecam reveladas, as outras ficam guardadas (manual, pag. 4)
+		List<String> sorteio = new ArrayList<String>(java.util.Arrays.asList(ORDEM_CIDADES));
+		java.util.Collections.shuffle(sorteio);
 		for (int i = 0; i < ORDEM_CIDADES.length; i++) {
 			if (i < CIDADES_INICIAIS) {
 				List<Tesouro> tesouros = new ArrayList<Tesouro>();
 				for (int k = 0; k < TESOUROS_POR_CIDADE; k++)
 					tesouros.add(pilha.poll());
-				mapa.revelarCidade(ORDEM_CIDADES[i], tesouros);
+				mapa.revelarCidade(sorteio.get(i), tesouros);
 			} else {
-				fechadas.add(ORDEM_CIDADES[i]);
+				fechadas.add(sorteio.get(i));
 			}
 		}
 		for (String prov : mapa.getNomesProvincias())
@@ -344,6 +349,7 @@ public final class ModeloApi implements ObservadoIF {
 	public boolean passarVez() {
 		if (partida == null || partida.isEncerrada() || !partida.podeEncerrarTurno())
 			return false;
+		partida.verificarCartasAbertas();
 		partida.encerrarTurno();
 		if (!partida.isEncerrada()) {
 			partida.iniciarTurno(0, 0);
@@ -399,6 +405,16 @@ public final class ModeloApi implements ObservadoIF {
 			return false;
 		notificar();
 		return true;
+	}
+
+	/** Cartas de conselheiro aberto ainda na mesa (ate 4): ids como "6_yurts", "2_cidades"... */
+	public List<String> getCartasAbertasNaMesa() {
+		return partida == null ? new ArrayList<String>() : partida.getCartasAbertas();
+	}
+
+	/** A peca de bonus deste conselheiro ainda esta no tabuleiro (ninguem entregou tesouros a ele)? */
+	public boolean isBonusDisponivel(String parada) {
+		return partida != null && mapa.temConselheiro(parada) && !partida.getConselheirosComBonus().contains(parada);
 	}
 
 	/** Parada onde esta o peao da cor indicada, ou null. */
@@ -650,6 +666,52 @@ public final class ModeloApi implements ObservadoIF {
 		return true;
 	}
 
+	// =====================================================================
+	// Salvar e recuperar a partida (4a iteracao)
+	// A View escolhe o arquivo com JFileChooser e chama estes metodos.
+	// O arquivo e texto ASCII puro (ver Persistencia).
+	// =====================================================================
+
+	/** O jogador da vez ainda nao comecou a jogar? So nesse momento a partida pode ser salva. */
+	public boolean podeSalvar() {
+		return partida != null && !partida.isEncerrada() && partida.getColunaAtivada() == null;
+	}
+
+	/**
+	 * Grava o estado completo da partida em um arquivo .txt (ASCII). Lanca
+	 * IOException se nao houver partida em andamento ou se o arquivo nao puder ser escrito.
+	 */
+	public void salvar(File arquivo) throws IOException {
+		if (arquivo == null)
+			throw new IOException("nenhum arquivo foi indicado.");
+		Persistencia.Estado e = new Persistencia.Estado();
+		e.jogadores = jogadores;
+		e.proximoIdJogador = proximoIdJogador;
+		e.mapa = mapa;
+		e.ordemJogadores = ordemJogadores;
+		e.partida = partida;
+		e.influenciaPontuada = influenciaPontuada;
+		Persistencia.gravar(e, arquivo.toPath());
+	}
+
+	/**
+	 * Le um arquivo salvo e troca a partida atual por ele (os observadores continuam
+	 * registrados e sao avisados). Se o arquivo for invalido, lanca IOException e a
+	 * partida atual nao muda.
+	 */
+	public void recuperar(File arquivo) throws IOException {
+		if (arquivo == null)
+			throw new IOException("nenhum arquivo foi indicado.");
+		Persistencia.Estado e = Persistencia.ler(arquivo.toPath());
+		jogadores = e.jogadores;
+		proximoIdJogador = e.proximoIdJogador;
+		mapa = e.mapa;
+		ordemJogadores = e.ordemJogadores;
+		partida = e.partida;
+		influenciaPontuada = e.influenciaPontuada;
+		notificar();
+	}
+
 	private Cartela cartela(String cor) {
 		return partida == null ? null : partida.getCartela(cor);
 	}
@@ -698,6 +760,8 @@ public final class ModeloApi implements ObservadoIF {
 	}
 
 	private void notificar() {
+		if (partida != null)
+			partida.verificarCartasAbertas(); // carta de conselheiro aberto cumprida = 1 voto
 		for (ObservadorIF o : new ArrayList<ObservadorIF>(observadores))
 			o.notify(this);
 	}

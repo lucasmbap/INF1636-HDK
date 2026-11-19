@@ -198,4 +198,43 @@ class Cartela {
 		for (ColunaCartela c : ColunaCartela.values())
 			novasNoTurno.put(c, 0);
 	}
+
+	// =====================================================================
+	// Salvar e recuperar a partida
+	// =====================================================================
+
+	/** Quantas melhorias da coluna foram colocadas neste turno (ainda nao valem). */
+	int getNovasNoTurno(ColunaCartela c) {
+		return novasNoTurno.get(c);
+	}
+
+	int getMelhoriasGratisRecebidas() {
+		return melhoriasGratisRecebidas;
+	}
+
+	List<ColunaCartela> getOcupadas() {
+		return new ArrayList<ColunaCartela>(ocupadas);
+	}
+
+	/** Refaz o estado da cartela a partir de um arquivo salvo (lanca IllegalArgumentException se invalido). */
+	void restaurar(List<ColunaCartela> ocupadasSalvas, int gratisRecebidas,
+			Map<ColunaCartela, List<TipoMelhoria>> melhoriasSalvas, Map<ColunaCartela, Integer> novas) {
+		for (ColunaCartela c : ColunaCartela.values()) {
+			List<TipoMelhoria> lst = melhoriasSalvas.get(c);
+			int n = novas.containsKey(c) ? novas.get(c) : 0;
+			if (lst == null || lst.size() > ESPACOS_POR_COLUNA || n < 0 || n > lst.size())
+				throw new IllegalArgumentException("melhorias invalidas na coluna " + c);
+		}
+		if (gratisRecebidas < 0 || gratisRecebidas > ESPACOS_POR_COLUNA || ocupadasSalvas.contains(ColunaCartela.BRANCA))
+			throw new IllegalArgumentException("cartela invalida");
+		for (ColunaCartela c : ColunaCartela.values()) {
+			melhorias.put(c, new ArrayList<TipoMelhoria>(melhoriasSalvas.get(c)));
+			novasNoTurno.put(c, novas.containsKey(c) ? novas.get(c) : 0);
+		}
+		ocupadas.clear();
+		for (ColunaCartela c : ocupadasSalvas)
+			if (!ocupadas.contains(c))
+				ocupadas.add(c);
+		melhoriasGratisRecebidas = gratisRecebidas;
+	}
 }

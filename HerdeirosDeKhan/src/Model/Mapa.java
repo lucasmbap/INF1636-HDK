@@ -609,4 +609,51 @@ class Mapa {
 				return false;
 		return true;
 	}
+
+	// =====================================================================
+	// Salvar e recuperar a partida
+	// =====================================================================
+
+	/** Todas as paradas, na ordem em que foram criadas pelo nome (ordenadas, para o arquivo ficar estavel). */
+	List<String> getNomesParadasOrdenados() {
+		List<String> lst = getNomesParadas();
+		java.util.Collections.sort(lst);
+		return lst;
+	}
+
+	/**
+	 * Refaz posicoes dos peoes, yurts e do Khan a partir de um arquivo salvo.
+	 * Os tributos das provincias e as cidades sao recuperados por quem chama.
+	 *
+	 * @param peoes cor -> parada
+	 * @param yurts parada -> cores dos donos dos yurts
+	 * @param khan  provincia do Khan, AREA_DE_MELHORIAS ou null
+	 */
+	void restaurarPosicoes(Map<String, String> peoes, Map<String, List<String>> yurts, String khan) {
+		for (Parada p : paradas.values()) {
+			for (String cor : p.getPeoes())
+				p.removerPeao(cor);
+		}
+		posicaoPeao.clear();
+		for (Map.Entry<String, String> e : peoes.entrySet()) {
+			Parada p = paradas.get(e.getValue());
+			if (p == null || !p.adicionarPeao(e.getKey()))
+				throw new IllegalArgumentException("peao invalido: " + e.getKey() + " em " + e.getValue());
+			posicaoPeao.put(e.getKey(), e.getValue());
+		}
+		for (Map.Entry<String, List<String>> e : yurts.entrySet()) {
+			Parada p = paradas.get(e.getKey());
+			if (p == null)
+				throw new IllegalArgumentException("parada inexistente: " + e.getKey());
+			for (String cor : e.getValue())
+				if (!p.construirYurt(cor))
+					throw new IllegalArgumentException("yurts demais em " + e.getKey());
+		}
+		if (khan != null && !AREA_DE_MELHORIAS.equals(khan)) {
+			Provincia pk = provincias.get(khan);
+			if (pk == null || !pk.isDoKhan())
+				throw new IllegalArgumentException("posicao do Khan invalida: " + khan);
+		}
+		posicaoKhan = khan;
+	}
 }

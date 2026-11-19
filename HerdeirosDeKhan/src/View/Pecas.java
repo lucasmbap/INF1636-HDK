@@ -86,13 +86,14 @@ public final class Pecas {
 		return img;
 	}
 
-	/** Tesouro (gado, especiaria, pele, ferro ou seda): disco colorido com a inicial, enquanto nao ha imagens. */
+	/** Tesouro (gado, especiaria, pele, ferro ou seda): imagens/tesouro_<tipo>; sem ela, disco colorido com a inicial. */
 	public static BufferedImage tesouro(String tipo, double escala) {
 		int d = px(TESOURO_D, escala);
 		String k = tipo + "@" + d;
 		BufferedImage img = tesouros.get(k);
 		if (img == null) {
-			img = criarTesouro(tipo, d);
+			BufferedImage origem = Imagens.procurar(PASTA + "tesouro_" + Imagens.nomeDeArquivo(tipo));
+			img = origem == null ? criarTesouro(tipo, d) : circular(origem, d);
 			tesouros.put(k, img);
 		}
 		return img;

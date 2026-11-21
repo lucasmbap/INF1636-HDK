@@ -8,6 +8,7 @@ import java.awt.event.MouseListener;
 import java.util.List;
 
 import javax.swing.JComponent;
+import javax.swing.JOptionPane;
 import javax.swing.SwingUtilities;
 
 import Model.ModeloApi;
@@ -262,10 +263,21 @@ public final class ControladorJogo implements ActionListener, MouseListener, Obs
 			return;
 		}
 		List<String> tesouros = painelControle.getTesourosEntregaSelecionados(requisitos.size());
-		if (modelo.entregarTesourosConselheiro(conselheiro, tesouros))
-			painelControle.exibirMensagem("Tesouros entregues. Voto(s) e bonus aplicados.");
-		else
+		if (modelo.entregarTesourosConselheiro(conselheiro, tesouros)) {
+			List<String> opcoes = modelo.getTesourosBonusPendentes();
+			if (!opcoes.isEmpty()) {
+				Object escolhido = JOptionPane.showInputDialog(tabuleiro,
+						"Bonus do bau: escolha 1 dos 3 tesouros. Os outros serao descartados.",
+						"Bonus: bau", JOptionPane.QUESTION_MESSAGE, null, opcoes.toArray(), opcoes.get(0));
+				String nome = escolhido == null ? opcoes.get(0) : escolhido.toString();
+				modelo.escolherTesouroBonus(nome);
+				painelControle.exibirMensagem("Tesouros entregues. Vo(t)o(s) e bonus aplicados; bau: " + nome + ".");
+			} else {
+				painelControle.exibirMensagem("Tesouros entregues. Voto(s) e bonus aplicados.");
+			}
+		} else {
 			painelControle.exibirMensagem("Entrega impossivel: verifique os tesouros disponiveis.");
+		}
 	}
 
 	private void mostrarVencedores() {

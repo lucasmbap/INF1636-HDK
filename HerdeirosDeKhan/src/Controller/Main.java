@@ -77,8 +77,8 @@ public final class Main {
 		janela.setLayout(new BorderLayout(8, 8));
 		janela.add(tabuleiro, BorderLayout.CENTER);
 		janela.add(controles, BorderLayout.EAST);
-		janela.setSize(new Dimension(1400, 1050));
-		janela.setMaximumSize(new Dimension(1400, 1050));
+		janela.setSize(new Dimension(1460, 1050));
+		janela.setMaximumSize(new Dimension(1460, 1050));
 		janela.setLocationRelativeTo(null);
 		janela.setVisible(true);
 		return janela;

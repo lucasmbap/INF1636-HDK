@@ -75,8 +75,8 @@ public class Main implements OuvinteInicio, OuvinteArquivos, OuvinteMelhorias, O
 
 	/**
 	 * Antes da 1a rodada: cada jogador recebe 1 carta de conselheiro secreto sorteada (as 10 cartas do
-	 * manual sao embaralhadas, entao nenhum jogador repete carta). Ela so aparece na aba "Cartas"
-	 * quando for a vez dele.
+	 * manual sao embaralhadas, entao nenhum jogador repete carta). As cartas ficam visiveis
+	 * para todos na aba "Cartas".
 	 */
 	private void sortearCartasSecretas() {
 		List<String[]> baralho = CartasSecretas.baralhar();

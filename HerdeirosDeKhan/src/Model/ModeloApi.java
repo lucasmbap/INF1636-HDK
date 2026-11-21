@@ -278,6 +278,10 @@ public final class ModeloApi implements ObservadoIF {
 		}
 		for (String prov : mapa.getNomesProvincias())
 			mapa.colocarTributo(prov);
+		// Preparacao oficial (manual, pagina 3): 1 moeda para os dois primeiros
+		// jogadores e 2 moedas para os demais.
+		for (int i = 0; i < ordemJogadores.size(); i++)
+			ordemJogadores.get(i).adicionarRecursos(TipoTributo.MOEDA, i < 2 ? 1 : 2);
 		partida = new Partida(mapa, ordemJogadores, fechadas, pilha);
 		partida.iniciarTurno(0, 0);
 		notificar();
@@ -421,6 +425,24 @@ public final class ModeloApi implements ObservadoIF {
 	/** A peca de bonus deste conselheiro ainda esta no tabuleiro (ninguem entregou tesouros a ele)? */
 	public boolean isBonusDisponivel(String parada) {
 		return partida != null && mapa.temConselheiro(parada) && !partida.getConselheirosComBonus().contains(parada);
+	}
+
+	/** Tipo da peca de bonus sorteada para o conselheiro (CADEIRA, ESPADAS etc.). */
+	public String getTipoBonus(String parada) {
+		return partida == null ? null : partida.getTipoBonus(parada);
+	}
+
+	/** Tesouros revelados pelo bonus do bau, aguardando o jogador escolher um. */
+	public List<String> getTesourosBonusPendentes() {
+		return partida == null ? new ArrayList<String>() : partida.getTesourosBonusPendentes();
+	}
+
+	/** Mantem um dos tesouros revelados pelo bonus do bau e descarta os demais. */
+	public boolean escolherTesouroBonus(String tesouro) {
+		if (partida == null || !partida.escolherTesouroBonus(tesouro))
+			return false;
+		notificar();
+		return true;
 	}
 
 	/** Parada onde esta o peao da cor indicada, ou null. */
@@ -888,4 +910,4 @@ public final class ModeloApi implements ObservadoIF {
 		Objects.checkIndex(indice, itens.size());
 		return itens.get(indice);
 	}
-}
+}

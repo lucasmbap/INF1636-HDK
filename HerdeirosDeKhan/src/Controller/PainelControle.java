@@ -40,7 +40,7 @@ public final class PainelControle extends JPanel {
 
 	public PainelControle() {
 		setLayout(new GridLayout(0, 1, 6, 6));
-		setPreferredSize(new Dimension(250, 300));
+		setPreferredSize(new Dimension(310, 300));
 
 		acao.addItem(ACAO_MOVIMENTAR);
 		acao.addItem(ACAO_TRIBUTO);
@@ -126,7 +126,7 @@ public final class PainelControle extends JPanel {
 
 	void atualizarEntrega(List<String> requisitos) {
 		boolean disponivel = conselheiro.getItemCount() > 0 && !requisitos.isEmpty();
-		requisitosEntrega.setText(requisitos.isEmpty()
+		setTextoQuebrado(requisitosEntrega, requisitos.isEmpty()
 				? "Nenhum conselheiro selecionado."
 				: "Exigidos: " + String.join(", ", requisitos));
 		for (int i = 0; i < tesourosEntrega.size(); i++) {
@@ -155,17 +155,17 @@ public final class PainelControle extends JPanel {
 			int peao) {
 		String h = herdeiro == null ? "" : herdeiro;
 		if (h.equals("Altani"))
-			habilidade.setText("<html>Altani: joga com o peao " + peao + " (escolha antes da coluna)</html>");
+			setTextoQuebrado(habilidade, "Altani: joga com o peao " + peao + " (escolha antes da coluna)");
 		else if (h.equals("Chagatai"))
-			habilidade.setText("<html>Chagatai: 1x por turno, troque 1 cavalo por 1 espada"
-					+ (usada ? " (ja usou)" : "") + "</html>");
+			setTextoQuebrado(habilidade, "Chagatai: 1x por turno, troque 1 cavalo por 1 espada"
+					+ (usada ? " (ja usou)" : ""));
 		else if (h.equals("Ogedei"))
-			habilidade.setText("<html>Ogedei: 1x por turno, 1 moeda = 1 tesouro de qualquer cidade"
-					+ (usada ? " (ja usou)" : "") + "</html>");
+			setTextoQuebrado(habilidade, "Ogedei: 1x por turno, 1 moeda = 1 tesouro de qualquer cidade"
+					+ (usada ? " (ja usou)" : ""));
 		else if (h.equals("Tolui"))
-			habilidade.setText("<html>Tolui: pode construir yurts nas paradas ao lado do peao</html>");
+			setTextoQuebrado(habilidade, "Tolui: pode construir yurts nas paradas ao lado do peao");
 		else if (h.equals("Jochi"))
-			habilidade.setText("<html>Jochi: compra melhorias para qualquer coluna</html>");
+			setTextoQuebrado(habilidade, "Jochi: compra melhorias para qualquer coluna");
 		else
 			habilidade.setText(" ");
 		trocarPeao.setVisible(h.equals("Altani"));
@@ -180,15 +180,15 @@ public final class PainelControle extends JPanel {
 
 	void atualizarEstado(String cor, int movimentos, int punhos, boolean partidaIniciada, boolean partidaEncerrada,
 			int colunaAtivada, boolean khanPendente) {
-		jogadorDaVez.setText("Jogador da vez: " + (cor == null ? "-" : cor));
+		setTextoQuebrado(jogadorDaVez, "Jogador da vez: " + (cor == null ? "-" : cor));
 		if (!partidaIniciada) {
-			estadoTurno.setText("A partida ainda nao comecou.");
+			setTextoQuebrado(estadoTurno, "A partida ainda nao comecou.");
 		} else if (partidaEncerrada) {
-			estadoTurno.setText("Partida encerrada.");
+			setTextoQuebrado(estadoTurno, "Partida encerrada.");
 		} else if (colunaAtivada < 0) {
-			estadoTurno.setText("Escolha uma coluna na cartela.");
+			setTextoQuebrado(estadoTurno, "Escolha uma coluna na cartela.");
 		} else {
-			estadoTurno.setText("Movimentos: " + movimentos + " | Punhos: " + punhos
+			setTextoQuebrado(estadoTurno, "Movimentos: " + movimentos + " | Punhos: " + punhos
 					+ (khanPendente ? " | Khan obrigatorio" : ""));
 		}
 		boolean turnoAtivo = partidaIniciada && !partidaEncerrada && colunaAtivada >= 0;
@@ -202,7 +202,14 @@ public final class PainelControle extends JPanel {
 	}
 
 	void exibirMensagem(String mensagem) {
-		estado.setText(mensagem == null || mensagem.isBlank() ? " " : mensagem);
+		setTextoQuebrado(estado, mensagem == null || mensagem.isBlank() ? " " : mensagem);
+	}
+
+	/** Usa HTML do JLabel para quebrar mensagens longas sem alterar o tabuleiro. */
+	private static void setTextoQuebrado(JLabel label, String texto) {
+		String seguro = texto == null ? " " : texto.replace("&", "&amp;").replace("<", "&lt;")
+				.replace(">", "&gt;").replace("\n", "<br>");
+		label.setText("<html><div style='width:220px; white-space:normal;'>" + seguro + "</div></html>");
 	}
 
 }

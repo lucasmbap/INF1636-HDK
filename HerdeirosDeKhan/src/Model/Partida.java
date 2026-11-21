@@ -36,6 +36,10 @@ class Partida {
 	private final Map<String, Jogador> jogadores = new HashMap<String, Jogador>();
 	private final List<String> ordem = new ArrayList<String>();
 	private final Set<String> conselheirosComBonus = new HashSet<String>();
+	private final Map<String, String> tipoBonusPorConselheiro = new HashMap<String, String>();
+	private final List<String> tesourosBonusPendentes = new ArrayList<String>();
+	private static final String[] PARADAS_COM_BONUS = { "R2", "R11", "C5", "C10", "P1", "P8", Mapa.KARAKORUM };
+	private static final String[] TIPOS_BONUS = { "CADEIRA", "ESPADAS", "MOEDAS", "YURTS", "CAVALOS", "MAOS", "BAU" };
 	/** As 14 cartas de conselheiro aberto do manual (pag. 18); 4 sorteadas ficam na mesa em cada partida. */
 	static final String[] TODAS_CARTAS_ABERTAS = { "4_espadas", "6_yurts", "10_yurts", "4_tesouros",
 			"5_tesouros_diferentes", "1_yurt_por_regiao", "2_yurts_por_regiao", "2_bonus", "3_bonus", "2_cidades",
@@ -101,6 +105,7 @@ class Partida {
 		java.util.Collections.shuffle(todas);
 		this.cartasAbertas = new ArrayList<String>(todas.subList(0, 4));
 		this.area = AreaDeMelhorias.nova();
+		prepararBonus();
 		prepararHabilidades();
 	}
 
@@ -110,6 +115,14 @@ class Partida {
 	 * - Tolui: 1 yurt em Karakorum, que nao pertence a nenhuma regiao;
 	 * - Jochi: tira 2 melhorias da pilha e depois escolhe 1 para a coluna branca.
 	 */
+	/** Distribui aleatoriamente as sete pecas de bonus sobre os sete conselheiros. */
+	private void prepararBonus() {
+		List<String> tipos = new ArrayList<String>(java.util.Arrays.asList(TIPOS_BONUS));
+		java.util.Collections.shuffle(tipos);
+		for (int i = 0; i < PARADAS_COM_BONUS.length; i++)
+			tipoBonusPorConselheiro.put(PARADAS_COM_BONUS[i], tipos.get(i));
+	}
+
 	private void prepararHabilidades() {
 		for (String cor : ordem) {
 			String h = herdeiro(cor);
@@ -332,10 +345,80 @@ class Partida {
 		for (int i = 0; i < votos; i++)
 			ganharVoto(getCorAtual());
 		if (conselheirosComBonus.add(parada)) {
-			jogador.adicionarRecursos(TipoTributo.MOEDA, 2); // peca de bonus: 2 moedas (manual, pag. 13)
+			aplicarBonus(tipoBonusPorConselheiro.get(parada));
 			Integer antes = bonusPorJogador.get(getCorAtual());
 			bonusPorJogador.put(getCorAtual(), antes == null ? 1 : antes + 1);
 		}
+		return true;
+	}
+
+	/** Aplica o efeito da peca recebida na primeira entrega ao conselheiro. */
+	private void aplicarBonus(String tipo) {
+		if (tipo == null)
+			return;
+		Jogador jogador = jogadorAtual();
+		switch (tipo) {
+		case "CADEIRA":
+			ganharVoto(getCorAtual());
+			break;
+		case "ESPADAS":
+			jogador.adicionarRecursos(TipoTributo.ESPADA, 2);
+			break;
+		case "MOEDAS":
+			jogador.adicionarRecursos(TipoTributo.MOEDA, 2);
+			break;
+		case "YURTS":
+			jogador.adicionarRecursos(TipoTributo.YURT, 2);
+			break;
+		case "CAVALOS":
+			movimentos += 3;
+			punhos += 1;
+			break;
+		case "MAOS":
+			punhos += 2;
+			break;
+		case "BAU":
+			tesourosBonusPendentes.clear();
+			for (int i = 0; i < 3 && !pilhaTesouros.isEmpty(); i++)
+				tesourosBonusPendentes.add(pilhaTesouros.removeFirst().getNome());
+			break;
+		default:
+			throw new IllegalStateException("Tipo de bonus desconhecido: " + tipo);
+		}
+	}
+
+	String getTipoBonus(String parada) {
+		return tipoBonusPorConselheiro.get(parada);
+	}
+
+	Map<String, String> getTiposBonusConselheiros() {
+		return new HashMap<String, String>(tipoBonusPorConselheiro);
+	}
+
+	void restaurarTiposBonus(Map<String, String> tipos) {
+		if (tipos == null || tipos.isEmpty())
+			return; // compatibilidade com arquivos salvos antes da distribuicao dos bonus
+		if (tipos.size() != PARADAS_COM_BONUS.length)
+			throw new IllegalArgumentException("distribuicao de bonus invalida");
+		Set<String> valores = new HashSet<String>(tipos.values());
+		if (valores.size() != TIPOS_BONUS.length || !valores.containsAll(java.util.Arrays.asList(TIPOS_BONUS)))
+			throw new IllegalArgumentException("tipos de bonus invalidos");
+		for (String parada : PARADAS_COM_BONUS)
+			if (!tipos.containsKey(parada))
+				throw new IllegalArgumentException("falta bonus para " + parada);
+		tipoBonusPorConselheiro.clear();
+		tipoBonusPorConselheiro.putAll(tipos);
+	}
+
+	List<String> getTesourosBonusPendentes() {
+		return new ArrayList<String>(tesourosBonusPendentes);
+	}
+
+	boolean escolherTesouroBonus(String nome) {
+		if (nome == null || !tesourosBonusPendentes.remove(nome))
+			return false;
+		jogadorAtual().adicionarTesouro(new Tesouro(nome));
+		tesourosBonusPendentes.clear(); // os outros dois sao descartados
 		return true;
 	}
 
@@ -551,7 +634,8 @@ class Partida {
 	 */
 	boolean colocarMelhoriaGratis(String cor, int espaco) {
 		Cartela c = cartelas.get(cor);
-		if (encerrada || c == null || c.getMelhoriasGratisPendentes() <= 0)
+		if (encerrada || cor == null || !cor.equals(getCorAtual())
+				|| c == null || c.getMelhoriasGratisPendentes() <= 0)
 			return false;
 		MelhoriaColorida m = espaco < 0 ? area.verTopo() : area.getEspaco(espaco);
 		if (m == null)
@@ -719,7 +803,132 @@ class Partida {
 					darVotosDeInfluencia(cor, regiao, VOTOS_SEGUNDO);
 			}
 		}
+		pontuarCartasSecretas();
 		pontuada = true;
+	}
+
+	/** Aplica os votos de 0 a 3 da carta secreta escolhida por cada jogador. */
+	private void pontuarCartasSecretas() {
+		for (String cor : ordem) {
+			for (CartaConselheiro carta : jogadores.get(cor).getCartasConselheiro()) {
+				if (carta.isAberta())
+					continue;
+				int votos = avaliarCartaSecreta(carta.getNome(), cor);
+				if (votos > 0)
+					jogadores.get(cor).adicionarVotos(votos); // pontuacao final nao move a ficha neutra
+				break; // cada jogador escolhe e mantem somente uma carta secreta
+			}
+		}
+	}
+
+	private int avaliarCartaSecreta(String nome, String cor) {
+		Cartela ct = cartelas.get(cor);
+		int totalMelhorias = 0;
+		Set<TipoMelhoria> simbolosDiferentes = new HashSet<TipoMelhoria>();
+		Map<IconeAcao, Integer> porSimbolo = new HashMap<IconeAcao, Integer>();
+		int melhoriasCavaloOuPunho = 0;
+		for (ColunaCartela coluna : ColunaCartela.values()) {
+			for (TipoMelhoria melhoria : ct.getMelhorias(coluna)) {
+				if (melhoria == null)
+					continue;
+				totalMelhorias++;
+				simbolosDiferentes.add(melhoria);
+				List<IconeAcao> icones = melhoria.getIcones();
+				if (icones.contains(IconeAcao.CAVALO) || icones.contains(IconeAcao.PUNHO))
+					melhoriasCavaloOuPunho++;
+				Set<IconeAcao> unicos = new HashSet<IconeAcao>(icones);
+				unicos.remove(IconeAcao.TESOURO); // tesouros diferentes nao formam pares iguais
+				for (IconeAcao icone : unicos)
+					porSimbolo.put(icone, porSimbolo.getOrDefault(icone, 0) + 1);
+			}
+		}
+		int pares = 0;
+		for (int quantidade : porSimbolo.values())
+			pares += quantidade * (quantidade - 1) / 2;
+
+		switch (nome) {
+		case "Viajante":
+			return votosPorMeta(mapa.maiorGrupoDeYurtsConectados(cor), 3, 6, 8);
+		case "Soldado":
+			return votosPorMeta(totalMelhorias, 4, 7, 10);
+		case "Colecionador":
+			return votosPorMeta(simbolosDiferentes.size(), 4, 6, 7);
+		case "Sacerdote":
+			return votosPorMeta(pares, 1, 2, 4);
+		case "Governador": {
+			int regioes = 0;
+			for (Regiao regiao : Regiao.values())
+				if (mapa.contarYurts(cor, regiao) >= 2
+						&& ct.getNumMelhorias(ColunaCartela.daRegiao(regiao)) >= 2)
+					regioes++;
+			return votosPorMeta(regioes, 1, 2, 3);
+		}
+		case "Bajulador":
+			return votosPorMeta(contarLocaisComDuasYurtsAdjacentes(cor), 2, 3, 4);
+		case "Prefeito":
+			return votosPorMeta(contarCidadesAdjacentes(cor, 2), 2, 3, 4);
+		case "Cidadao":
+			return votosPorMeta(contarCidadesAdjacentes(cor, 1), 3, 6, 8);
+		case "Cavaleiro":
+			return votosPorMeta(melhoriasCavaloOuPunho, 2, 4, 5);
+		case "Mensageiro":
+			return votosPorMeta(contarParadasDuplasComYurt(cor), 2, 4, 6);
+		default:
+			return 0;
+		}
+	}
+
+	private int votosPorMeta(int valor, int primeiro, int segundo, int terceiro) {
+		if (valor >= terceiro)
+			return 3;
+		if (valor >= segundo)
+			return 2;
+		if (valor >= primeiro)
+			return 1;
+		return 0;
+	}
+
+	/** Quantas provincias do Khan tem pelo menos duas yurts do jogador em paradas adjacentes. */
+	private int contarLocaisComDuasYurtsAdjacentes(String cor) {
+		int total = 0;
+		for (String provincia : mapa.getProvinciasDoKhan()) {
+			int yurts = 0;
+			for (String parada : mapa.getNomesParadas())
+				if (mapa.getProvinciasAdjacentes(parada).contains(provincia))
+					for (String dono : mapa.getYurtsNaParada(parada))
+						if (cor.equals(dono))
+							yurts++;
+			if (yurts >= 2)
+				total++;
+		}
+		return total;
+	}
+
+	/** Cidades com pelo menos minYurts yurts do jogador em paradas adjacentes. */
+	private int contarCidadesAdjacentes(String cor, int minYurts) {
+		int total = 0;
+		for (String cidade : mapa.getNomesCidades()) {
+			int yurts = 0;
+			for (String parada : mapa.getNomesParadas())
+				if (mapa.getCidadesAdjacentes(parada).contains(cidade))
+					for (String dono : mapa.getYurtsNaParada(parada))
+						if (cor.equals(dono))
+							yurts++;
+			if (yurts >= minYurts)
+				total++;
+		}
+		return total;
+	}
+
+	private int contarParadasDuplasComYurt(String cor) {
+		int total = 0;
+		for (String parada : mapa.getNomesParadas()) {
+			if (mapa.getTipoParada(parada) != TipoParada.DUPLA || !mapa.temConselheiro(parada))
+				continue;
+			if (mapa.getYurtsNaParada(parada).contains(cor))
+				total++;
+		}
+		return total;
 	}
 
 	private void darVotosDeInfluencia(String cor, Regiao regiao, int[] tabela) {
@@ -848,6 +1057,10 @@ class Partida {
 
 	Map<String, Integer> getBonusPorJogador() {
 		return new HashMap<String, Integer>(bonusPorJogador);
+	}
+
+	void restaurarTiposBonusConselheiros(Map<String, String> tipos) {
+		restaurarTiposBonus(tipos);
 	}
 
 	void restaurarCartasAbertas(List<String> cartas, Map<String, Integer> bonus) {

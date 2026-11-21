@@ -199,6 +199,11 @@ class Mapa {
 		return p.getYurts();
 	}
 
+	TipoParada getTipoParada(String nome) {
+		Parada p = paradas.get(nome);
+		return p == null ? null : p.getTipo();
+	}
+
 	boolean saoAdjacentes(String a, String b) {
 		List<String> vizinhas = rotas.get(a);
 		return vizinhas != null && vizinhas.contains(b);

@@ -32,7 +32,7 @@ public final class CartasSecretas {
 		return RECOMPENSA;
 	}
 
-	/** Baralha as 10 cartas e devolve todas ({nome, condicao}); cada jogador (ate 5) recebe 2. */
+	/** Baralha as 10 cartas e devolve todas ({nome, condicao}); cada jogador recebe uma carta diferente, quando disponivel. */
 	public static List<String[]> baralhar() {
 		List<String[]> lst = new ArrayList<String[]>();
 		for (String[] c : CARTAS)

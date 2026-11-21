@@ -31,7 +31,7 @@ public class PainelTabuleiro extends PainelMapa implements ObservadorIF {
 	/** Cada jogador tem 12 yurts (mesmo valor de Partida.MAX_YURTS, que nao e publico). */
 	public static final int MAX_YURTS = 12;
 
-	private static final int ALTURA_FAIXA = 22;
+	private static final int ALTURA_FAIXA = 34;
 	private static final int DIAMETRO_RESERVA = 16;
 
 	private final ModeloApi modelo;
@@ -192,21 +192,84 @@ public class PainelTabuleiro extends PainelMapa implements ObservadorIF {
 	private static final int AREA_Y = 2471;
 	private static final int AREA_W = 190;
 	private static final int AREA_H = 100;
-	private static final String[] AREA_TIPOS = { "punho", "moeda", "cavalos", "espada", "yurt" };
 
-	/** As 5 pecas de melhoria que podem ser compradas ficam nas casas da area de melhorias. */
+
 	private void desenharAreaDeMelhorias(Graphics2D g) {
-		for (int i = 0; i < AREA_X.length; i++) {
-			// usa imagens/melhoria_<tipo>; se so existirem as versoes coloridas, usa a primeira que achar
-			String base = "imagens/melhoria_" + AREA_TIPOS[i];
-			String[] candidatos = { base, base + "_amarela", base + "_verde", base + "_vermelha" };
-			for (String c : candidatos)
-				if (Imagens.silenciosa(c) != null) {
-					desenharCarta(g, c, AREA_X[i], AREA_Y, AREA_W, AREA_H);
-					break;
-				}
-		}
+	    for (int i = 0; i < AREA_X.length; i++) {
+	
+	        // Consulta a peça que realmente está naquele espaço.
+	        String tipo = modelo.getTipoMelhoriaNaArea(i);
+	
+	        // Espaço vazio: não desenha nenhuma peça.
+	        if (tipo == null)
+	            continue;
+	
+	        int cor = modelo.getCorMelhoriaNaArea(i);
+	
+	        String nomeImagem = nomeImagemMelhoria(tipo, cor);
+	
+	        if (nomeImagem != null) {
+	            desenharCarta(g, nomeImagem,
+	                    AREA_X[i], AREA_Y, AREA_W, AREA_H);
+	        }
+	    }
 	}
+	
+	private String nomeImagemMelhoria(String tipo, int cor) {
+	
+	    // 0 = vermelha, 1 = verde, 2 = amarela
+	    String corNome;
+	
+	    switch (cor) {
+	        case 0:
+	            corNome = "vermelha";
+	            break;
+	        case 1:
+	            corNome = "verde";
+	            break;
+	        case 2:
+	            corNome = "amarela";
+	            break;
+	        default:
+	            return null;
+	    }
+	
+	    switch (tipo) {
+	
+	        case "MOEDA":
+	            // Existe um pequeno erro de escrita no nome do arquivo.
+	            if (cor == 0)
+	                return "imagens/melhoria_moeda_vermalha";
+	            return "imagens/melhoria_moeda_" + corNome;
+	
+	        case "ESPADA":
+	            return "imagens/melhoria_espada_" + corNome;
+	
+	        case "PUNHO":
+	            return "imagens/melhoria_mao_" + corNome;
+	
+	        case "CAVALOS":
+	            if (cor == 2)
+	                return "imagens/melhoria_cavalos_amarela";
+	            return "imagens/melhoria_cavalo_" + corNome;
+	
+	        case "YURT":
+	            if (cor == 2)
+	                return "imagens/melhoria_yurt_amarelo";
+	            if (cor == 0)
+	                return "imagens/melhoria_yurt_vermelho";
+	            return "imagens/melhoria_yurt_verde";
+	
+	        default:
+	            if (tipo.startsWith("TESOURO_")) {
+	                return "imagens/melhoria_tesouro_"
+	                        + tipo.substring("TESOURO_".length()).toLowerCase();
+	            }
+	
+	            return null;
+	    }
+	}
+
 
 	// trilha de votos (0 votos = marcadores na largada, a esquerda da 1a casa): 10 casas em cima (esq -> dir) e 7 embaixo (dir -> esq), 1 a 17 votos
 	private static final int VOTO_MAX = 17;
@@ -272,11 +335,18 @@ public class PainelTabuleiro extends PainelMapa implements ObservadorIF {
 			{ 207, 905 }, { 637, 1844 }, { 1281, 1236 } };
 	private static final int BONUS_D = 150;
 
-	/** A peca de bonus (2 moedas) cobre o quadrado do conselheiro ate o primeiro jogador entregar tesouros a ele. */
+	/** Desenha a peca sorteada sobre cada simbolo de bonus ainda nao coletado. */
 	private void desenharBonus(Graphics2D g) {
-		for (int i = 0; i < BONUS_PARADA.length; i++)
-			if (modelo.isBonusDisponivel(BONUS_PARADA[i]))
-				desenharCarta(g, "imagens/bonus_moedas", BONUS_XY[i][0], BONUS_XY[i][1], BONUS_D, BONUS_D);
+		for (int i = 0; i < BONUS_PARADA.length; i++) {
+			String parada = BONUS_PARADA[i];
+			if (!modelo.isBonusDisponivel(parada))
+				continue;
+			String tipo = modelo.getTipoBonus(parada);
+			if (tipo == null)
+				continue;
+			desenharCarta(g, "imagens/bonus_" + tipo.toLowerCase(), BONUS_XY[i][0], BONUS_XY[i][1],
+					BONUS_D, BONUS_D);
+		}
 	}
 
 	private int idDaCor(String cor) {
@@ -405,12 +475,13 @@ public class PainelTabuleiro extends PainelMapa implements ObservadorIF {
 		int id = modelo.getIdJogadorDaVez();
 		String nome = id >= 0 ? modelo.getNomeJogador(id) : cor;
 		String herdeiro = id >= 0 ? modelo.getHerdeiro(id) : "";
-		String votos = id >= 0 ? "   |   Votos: " + modelo.getVotos(id) : "";
+		String linha1 = "Vez de " + nome + (herdeiro == null || herdeiro.isEmpty() ? "" : " (" + herdeiro + ")");
+		String linha2 = "Movimentos: " + modelo.getMovimentosRestantes()
+				+ (id >= 0 ? "   |   Votos: " + modelo.getVotos(id) : "");
 		g.setColor(texto);
-		g.setFont(new Font("SansSerif", Font.BOLD, 13));
-		g.drawString("Vez de " + nome + (herdeiro == null || herdeiro.isEmpty() ? "" : " (" + herdeiro + ")")
-				+ "   |   Movimentos restantes: " + modelo.getMovimentosRestantes() + votos, x0 + 10,
-				y0 + ALTURA_FAIXA / 2 + 5);
+		g.setFont(new Font("SansSerif", Font.BOLD, 11));
+		g.drawString(linha1, x0 + 10, y0 + 14);
+		g.drawString(linha2, x0 + 10, y0 + 28);
 
 		// reserva de yurts: 12 pecas redondas da cor do jogador
 		int noMapa = Math.min(MAX_YURTS, yurtsNoMapa(cor));

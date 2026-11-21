@@ -100,6 +100,8 @@ final class Persistencia {
 		Partida p = e.partida;
 		for (String b : p.getConselheirosComBonus())
 			linha(sb, "BONUS", b);
+		for (Map.Entry<String, String> b : new java.util.TreeMap<String, String>(p.getTiposBonusConselheiros()).entrySet())
+			linha(sb, "BONUS_TIPO", b.getKey(), b.getValue());
 		for (String c : p.getCidadesFechadas())
 			linha(sb, "FECHADA", c);
 		for (Tesouro t : p.getPilhaTesouros())
@@ -252,6 +254,7 @@ final class Persistencia {
 		int indice = 0, votosNeutra = 0;
 		boolean influencia = false, fim = false, ultima = false, terminada = false, pontuada = false;
 		List<String> bonus = new ArrayList<String>();
+		Map<String, String> bonusTipos = new HashMap<String, String>();
 		Deque<String> fechadas = new ArrayDeque<String>();
 		Deque<Tesouro> pilha = new ArrayDeque<Tesouro>();
 		List<String> cartasAbertas = new ArrayList<String>();
@@ -357,6 +360,9 @@ final class Persistencia {
 			}
 			case "BONUS":
 				bonus.add(dec(f[1]));
+				break;
+			case "BONUS_TIPO":
+				bonusTipos.put(dec(f[1]), dec(f[2]));
 				break;
 			case "FECHADA":
 				fechadas.add(dec(f[1]));
@@ -491,6 +497,7 @@ final class Persistencia {
 			if (!mapa.temConselheiro(b))
 				throw new IOException("conselheiro invalido: " + b);
 		partida.restaurarCartasAbertas(cartasAbertas, bonusDe);
+		partida.restaurarTiposBonusConselheiros(bonusTipos);
 		ColunaCartela coluna = null;
 		if (colunaAtivada >= 0)
 			coluna = ColunaCartela.values()[colunaAtivada];

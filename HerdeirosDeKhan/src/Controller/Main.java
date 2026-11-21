@@ -11,6 +11,7 @@ import javax.swing.SwingUtilities;
 
 import Model.ModeloApi;
 import View.JanelaJogador;
+import View.OuvinteFimPartida;
 
 /**
  * Ponto de integracao da aplicacao. A View fornece o componente do tabuleiro.
@@ -46,13 +47,19 @@ public final class Main {
 	 * Abre o tabuleiro e conecta o controlador tambem a cartela do jogador.
 	 */
 	public static JFrame abrir(ModeloApi modelo, JComponent tabuleiro, JanelaJogador janelaJogador) {
+		return abrir(modelo, tabuleiro, janelaJogador, null);
+	}
+
+	/** Abre o tabuleiro e conecta o fluxo de fim de partida fornecido pela View. */
+	public static JFrame abrir(ModeloApi modelo, JComponent tabuleiro, JanelaJogador janelaJogador,
+			OuvinteFimPartida ouvinteFimPartida) {
 		if (!SwingUtilities.isEventDispatchThread())
 			throw new IllegalStateException("Main.abrir deve ser chamado na thread de eventos do Swing.");
 		if (modelo == null || tabuleiro == null)
 			throw new IllegalArgumentException("Modelo e tabuleiro sao obrigatorios.");
 
 		PainelControle controles = new PainelControle();
-		final ControladorJogo controlador = new ControladorJogo(modelo, tabuleiro, controles);
+		final ControladorJogo controlador = new ControladorJogo(modelo, tabuleiro, controles, ouvinteFimPartida);
 		if (janelaJogador != null)
 			janelaJogador.setOuvinte(controlador);
 

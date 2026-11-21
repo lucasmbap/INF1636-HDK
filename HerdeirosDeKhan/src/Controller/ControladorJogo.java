@@ -15,6 +15,7 @@ import Model.ObservadoIF;
 import Model.ObservadorIF;
 import View.CoordenadasMapa;
 import View.OuvinteAcoes;
+import View.OuvinteFimPartida;
 
 /**
  * Organiza os eventos e a sequencia de acoes de cada turno.
@@ -28,15 +29,23 @@ public final class ControladorJogo implements ActionListener, MouseListener, Obs
 	private final ModeloApi modelo;
 	private final JComponent tabuleiro;
 	private final PainelControle painelControle;
+	private final OuvinteFimPartida ouvinteFimPartida;
 	private boolean encerrado;
 	private boolean atualizandoConselheiros;
+	private boolean fimDaPartidaApresentado;
 
 	public ControladorJogo(ModeloApi modelo, JComponent tabuleiro, PainelControle painelControle) {
+		this(modelo, tabuleiro, painelControle, null);
+	}
+
+	public ControladorJogo(ModeloApi modelo, JComponent tabuleiro, PainelControle painelControle,
+			OuvinteFimPartida ouvinteFimPartida) {
 		if (modelo == null || tabuleiro == null || painelControle == null)
 			throw new IllegalArgumentException("Modelo, tabuleiro e painel de controle sao obrigatorios.");
 		this.modelo = modelo;
 		this.tabuleiro = tabuleiro;
 		this.painelControle = painelControle;
+		this.ouvinteFimPartida = ouvinteFimPartida;
 
 		painelControle.getBotaoEncerrarTurno().setActionCommand(ENCERRAR_TURNO);
 		painelControle.getBotaoEncerrarTurno().addActionListener(this);
@@ -170,14 +179,45 @@ public final class ControladorJogo implements ActionListener, MouseListener, Obs
 	public void notify(ObservadoIF observado) {
 		if (SwingUtilities.isEventDispatchThread()) {
 			atualizarInterface();
+			agendarVerificacaoFimDaPartida();
 		} else {
 			SwingUtilities.invokeLater(new Runnable() {
 				@Override
 				public void run() {
 					atualizarInterface();
+					agendarVerificacaoFimDaPartida();
 				}
 			});
 		}
+	}
+
+	private void agendarVerificacaoFimDaPartida() {
+		SwingUtilities.invokeLater(new Runnable() {
+			@Override
+			public void run() {
+				verificarFimDaPartida();
+			}
+		});
+	}
+
+	private void verificarFimDaPartida() {
+		if (!modelo.isPartidaEncerrada()) {
+			fimDaPartidaApresentado = false;
+			return;
+		}
+		if (fimDaPartidaApresentado || ouvinteFimPartida == null)
+			return;
+		fimDaPartidaApresentado = true;
+		ouvinteFimPartida.perguntarNovaPartida(modelo.getVencedores(), new Runnable() {
+			@Override
+			public void run() {
+				if (encerrado || !modelo.isPartidaEncerrada())
+					return;
+				modelo.novaPartida();
+				ouvinteFimPartida.prepararNovaPartida();
+				ouvinteFimPartida.abrirEscolhaNovaPartida();
+			}
+		});
 	}
 
 	private void atualizarInterface() {

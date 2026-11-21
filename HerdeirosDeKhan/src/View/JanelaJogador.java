@@ -123,7 +123,7 @@ public class JanelaJogador extends JFrame implements ObservadorIF {
 	 * partida em andamento e nenhuma coluna da cartela ativada ainda neste turno.
 	 */
 	private boolean podeSalvar() {
-		return modelo.podeSalvar(); // a regra fica no Model
+		return ouvinteArquivos != null && ouvinteArquivos.podeSalvarPartida();
 	}
 
 	private void atualizar() {

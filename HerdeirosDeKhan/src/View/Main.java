@@ -4,7 +4,6 @@ import java.awt.BorderLayout;
 import java.awt.GraphicsEnvironment;
 import java.awt.Rectangle;
 import java.io.File;
-import java.io.IOException;
 import java.util.List;
 
 import javax.swing.JComponent;
@@ -13,24 +12,21 @@ import javax.swing.JLabel;
 import javax.swing.JOptionPane;
 import javax.swing.SwingUtilities;
 
+import Controller.ControladorArquivos;
 import Model.ModeloApi;
-import Model.ObservadoIF;
-import Model.ObservadorIF;
 
 /**
  * Inicializacao do jogo. Abre a janela inicial; quando os jogadores e herdeiros sao
  * escolhidos, cria os jogadores no Model, inicia a partida e abre o tabuleiro (pelo
- * Controller), a cartela e as cartas. Tambem trata o fim da partida (pergunta se querem
- * jogar de novo) e liga os botoes de salvar e recuperar ao Model.
- * Esta classe e a "cola": o metodo iniciarPartida (OuvinteInicio) e os de arquivo
- * (OuvinteArquivos) poderiam ser movidos para o Controller.
+ * Controller), a cartela e as cartas. A View apresenta os dialogos e escolhe os arquivos;
+ * o Controller coordena as operacoes do Model.
  */
-public class Main implements OuvinteInicio, OuvinteArquivos, OuvinteMelhorias {
+public class Main implements OuvinteInicio, OuvinteArquivos, OuvinteMelhorias, OuvinteFimPartida {
 	/** Imagem do tabuleiro, relativa a pasta de execucao (raiz do projeto). */
 	public static final String CAMINHO_TABULEIRO = "imagens/tabuleiro.jpg";
 
 	private final ModeloApi modelo = ModeloApi.getInstance();
-	private final FimDePartida fimDePartida = new FimDePartida();
+	private final ControladorArquivos controladorArquivos = new ControladorArquivos(modelo);
 
 	private boolean jogoAberto = false;
 	private PainelTabuleiro tabuleiro = null;
@@ -126,7 +122,7 @@ public class Main implements OuvinteInicio, OuvinteArquivos, OuvinteMelhorias {
 		return null;
 	}
 
-	/** Abre o tabuleiro (pelo Controller) e a janela do jogador, e comeca a vigiar o fim da partida. */
+	/** Abre o tabuleiro pelo Controller e conecta as janelas auxiliares. */
 	private void abrirJogo() {
 		tabuleiro = new PainelTabuleiro(modelo, CAMINHO_TABULEIRO);
 		janelaJogador = new JanelaJogador(modelo);
@@ -134,14 +130,11 @@ public class Main implements OuvinteInicio, OuvinteArquivos, OuvinteMelhorias {
 		janelaJogador.setOuvinteMelhorias(this);
 		janelaJogo = abrirTabuleiro(tabuleiro, janelaJogador);
 		janelaJogador.setVisible(true);
-		fimDePartida.liberar();
-		modelo.add(fimDePartida);
 		jogoAberto = true;
 	}
 
 	/** Fecha as janelas do jogo (o Model continua como esta). */
 	private void fecharJogo() {
-		modelo.remove(fimDePartida);
 		if (janelaJogador != null)
 			janelaJogador.dispose();
 		if (janelaJogo != null)
@@ -155,22 +148,26 @@ public class Main implements OuvinteInicio, OuvinteArquivos, OuvinteMelhorias {
 	}
 
 	/**
-	 * Entrega o tabuleiro e a janela do jogador ao Controller (Controller.Main.abrir), que abre a
-	 * janela do jogo e se liga aos cliques, botoes e a cartela. A chamada e por reflexao para que
-	 * a View compile com ou sem o Controller. Se o Controller so tiver a versao antiga de abrir
-	 * (sem a janela do jogador), a cartela fica ligada ao ControleProvisorio; se nao houver
-	 * Controller, abre uma janela so de visualizacao. Devolve a janela do jogo.
+	 * Entrega o tabuleiro e as janelas auxiliares ao Controller. A chamada e por reflexao para
+	 * manter a View utilizavel sem o Controller; nesse caso, o tabuleiro fica apenas para
+	 * visualizacao.
 	 */
 	private JFrame abrirTabuleiro(JComponent painel, JanelaJogador jogador) {
 		Object janela = null;
 		try {
 			Class<?> classe = Class.forName("Controller.Main");
 			try {
-				janela = classe.getMethod("abrir", ModeloApi.class, JComponent.class, JanelaJogador.class)
-						.invoke(null, modelo, painel, jogador);
+				janela = classe.getMethod("abrir", ModeloApi.class, JComponent.class, JanelaJogador.class,
+						OuvinteFimPartida.class).invoke(null, modelo, painel, jogador, this);
 			} catch (NoSuchMethodException e) {
-				jogador.setOuvinte(new ControleProvisorio());
-				janela = classe.getMethod("abrir", ModeloApi.class, JComponent.class).invoke(null, modelo, painel);
+				try {
+					janela = classe.getMethod("abrir", ModeloApi.class, JComponent.class, JanelaJogador.class)
+							.invoke(null, modelo, painel, jogador);
+				} catch (NoSuchMethodException versaoAntiga) {
+					jogador.setOuvinte(new ControleProvisorio());
+					janela = classe.getMethod("abrir", ModeloApi.class, JComponent.class).invoke(null, modelo,
+							painel);
+				}
 			}
 		} catch (ClassNotFoundException e) {
 			jogador.setOuvinte(new ControleProvisorio());
@@ -215,106 +212,65 @@ public class Main implements OuvinteInicio, OuvinteArquivos, OuvinteMelhorias {
 	}
 
 	// ------------------------------------------------------------------
-	// Salvar e recuperar (4a iteracao). A View escolhe o arquivo; o Model grava e le.
+	// Salvar e recuperar: a View escolhe o arquivo; o Controller coordena o Model.
 	// ------------------------------------------------------------------
 
 	@Override
+	public boolean podeSalvarPartida() {
+		return controladorArquivos.podeSalvarPartida();
+	}
+
+	@Override
 	public String salvarPartida(File arquivo) {
-		try {
-			PersistenciaModelo.gravar(arquivo);
-			return null;
-		} catch (IOException e) {
-			return e.getMessage();
-		} catch (RuntimeException e) {
-			e.printStackTrace();
-			return e.toString();
-		}
+		return controladorArquivos.salvarPartida(arquivo);
 	}
 
 	@Override
 	public String recuperarPartida(File arquivo) {
-		try {
-			PersistenciaModelo.ler(arquivo);
-		} catch (IOException e) {
-			return e.getMessage();
-		} catch (RuntimeException e) {
-			e.printStackTrace();
-			return e.toString();
-		}
-		if (!modelo.isPartidaIniciada())
-			return "o arquivo nao tem uma partida em andamento.";
-		fimDePartida.liberar();
+		String erro = controladorArquivos.recuperarPartida(arquivo);
+		if (erro != null)
+			return erro;
 		if (!jogoAberto)
 			abrirJogo(); // recuperada a partir da janela inicial: abre o tabuleiro e a cartela
 		return null;
 	}
 
 	// ------------------------------------------------------------------
-	// Fim da partida
+	// Dialogos de fim da partida (OuvinteFimPartida)
 	// ------------------------------------------------------------------
 
-	/**
-	 * Observadora do Model: quando a partida termina, mostra o vencedor e pergunta se os
-	 * jogadores querem uma nova partida. Sim: reabre a escolha de herdeiros. Nao: encerra.
-	 */
-	private class FimDePartida implements ObservadorIF {
-		private boolean perguntou = false;
-
-		void liberar() {
-			perguntou = false;
-		}
-
-		@Override
-		public void notify(ObservadoIF observado) {
-			if (!modelo.isPartidaEncerrada()) {
-				perguntou = false;
-				return;
-			}
-			if (perguntou)
-				return;
-			perguntou = true;
-			// adia: nao abrir dialogo no meio da notificacao dos outros observadores
-			SwingUtilities.invokeLater(new Runnable() {
-				@Override
-				public void run() {
-					perguntarNovaPartida();
-				}
-			});
-		}
-	}
-
-	private void perguntarNovaPartida() {
+	@Override
+	public void perguntarNovaPartida(List<String> vencedores, Runnable iniciarNovaPartida) {
 		Object[] opcoes = { "Sim", "Nao" };
 		int resposta = JOptionPane.showOptionDialog(janelaJogo,
-				textoDoVencedor() + "\n\nDeseja iniciar uma nova partida?", "Fim da partida",
+				textoDoVencedor(vencedores) + "\n\nDeseja iniciar uma nova partida?", "Fim da partida",
 				JOptionPane.YES_NO_OPTION, JOptionPane.QUESTION_MESSAGE, null, opcoes, opcoes[0]);
 		if (resposta == JOptionPane.YES_OPTION)
-			novaPartida();
+			iniciarNovaPartida.run();
 		else
 			System.exit(0);
 	}
 
-	private void novaPartida() {
+	@Override
+	public void prepararNovaPartida() {
 		fecharJogo();
-		modelo.novaPartida(); // zera o Model; a janela de escolha so se fecha quando uma partida comeca
+	}
+
+	@Override
+	public void abrirEscolhaNovaPartida() {
 		new JanelaEscolhaHerdeiros(modelo, this).setVisible(true);
 	}
 
-	private String textoDoVencedor() {
-		try {
-			List<String> cores = modelo.getVencedores();
-			if (cores.isEmpty())
-				return "Partida encerrada.";
-			StringBuilder sb = new StringBuilder(cores.size() > 1 ? "Vencedores: " : "Vencedor: ");
-			for (int i = 0; i < cores.size(); i++) {
-				if (i > 0)
-					sb.append(", ");
-				sb.append(nomeDoJogador(cores.get(i)));
-			}
-			return sb.toString();
-		} catch (RuntimeException e) {
+	private String textoDoVencedor(List<String> cores) {
+		if (cores.isEmpty())
 			return "Partida encerrada.";
+		StringBuilder sb = new StringBuilder(cores.size() > 1 ? "Vencedores: " : "Vencedor: ");
+		for (int i = 0; i < cores.size(); i++) {
+			if (i > 0)
+				sb.append(", ");
+			sb.append(nomeDoJogador(cores.get(i)));
 		}
+		return sb.toString();
 	}
 
 	private String nomeDoJogador(String cor) {

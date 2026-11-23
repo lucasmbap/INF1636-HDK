@@ -26,9 +26,9 @@ import Model.ObservadoIF;
 import Model.ObservadorIF;
 
 /**
- * Cartas de conselheiro. Mostra publicamente as cartas secretas de todos os
- * jogadores na aba Cartas, alem das cartas abertas que continuam na mesa.
- * Observadora do Model.
+ * Cartas de conselheiro. Mostra TODAS as cartas do jogador da vez (abertas e
+ * secretas) e, separadas, apenas as cartas ABERTAS dos outros jogadores: as
+ * secretas dos outros nunca aparecem. Observadora do Model.
  *
  * As cartas sao desenhadas com Java2D (texto do Model); quando houver imagens
  * das cartas, basta trocar desenharCarta por drawImage.
@@ -85,7 +85,7 @@ public class JanelaCartas extends JPanel implements ObservadorIF {
 			Color cor = Cores.de(modelo.getCorJogador(id));
 			titulo.setBackground(cor);
 			titulo.setForeground(Cores.textoSobre(cor));
-			titulo.setText("Cartas dos jogadores");
+			titulo.setText("Cartas de " + modelo.getNomeJogador(id));
 		}
 		painel.recalcular(id);
 		painel.revalidate();
@@ -100,18 +100,6 @@ public class JanelaCartas extends JPanel implements ObservadorIF {
 
 	private int totalJogadores() {
 		return modelo.getCores().size();
-	}
-
-	/** Conta as cartas secretas de todos os jogadores para calcular a altura do painel. */
-	private int quantidadeCartasSecretasPublicas() {
-		int total = 0;
-		for (int id = 1; id <= totalJogadores(); id++) {
-			for (int i = 0; i < modelo.getQuantidadeCartasConselheiro(id); i++) {
-				if (!modelo.isCartaConselheiroAberta(id, i))
-					total++;
-			}
-		}
-		return total;
 	}
 
 	private int quantidadeAbertasDosOutros(int idVez) {
@@ -193,10 +181,10 @@ public class JanelaCartas extends JPanel implements ObservadorIF {
 		}
 
 		void recalcular(int idVez) {
-			int secretas = idVez < 0 ? 0 : quantidadeCartasSecretasPublicas();
-			int abertas = idVez < 0 ? 0 : modelo.getCartasAbertasNaMesa().size();
-			int altura = TITULO_SECAO + Math.max(1, linhas(secretas)) * (ALT + FOLGA) + TITULO_SECAO
-					+ Math.max(1, linhas(abertas)) * (ALT + FOLGA) + FOLGA;
+			int minhas = idVez < 0 ? 0 : modelo.getQuantidadeCartasConselheiro(idVez);
+			int outras = idVez < 0 ? 0 : modelo.getCartasAbertasNaMesa().size();
+			int altura = TITULO_SECAO + Math.max(1, linhas(minhas)) * (ALT + FOLGA) + TITULO_SECAO
+					+ Math.max(1, linhas(outras)) * (ALT + FOLGA) + FOLGA;
 			setPreferredSize(new Dimension(COLUNAS * (LARG + FOLGA) + FOLGA, altura));
 		}
 
@@ -213,20 +201,14 @@ public class JanelaCartas extends JPanel implements ObservadorIF {
 			}
 
 			int y = 0;
-			secao(g, "Cartas secretas dos jogadores (visiveis a todos)", y);
+			secao(g, "Suas cartas (secretas só você vê)", y);
 			y += TITULO_SECAO;
-			int posicao = 0;
-			for (int id = 1; id <= totalJogadores(); id++) {
-				for (int i = 0; i < modelo.getQuantidadeCartasConselheiro(id); i++) {
-					if (!modelo.isCartaConselheiroAberta(id, i)) {
-						carta(g, id, i, posicao, y, Cores.de(modelo.getCorJogador(id)), true);
-						posicao++;
-					}
-				}
-			}
-			if (posicao == 0)
-				vazio(g, "Nenhuma carta secreta cadastrada.", y);
-			y += Math.max(1, linhas(posicao)) * (ALT + FOLGA);
+			int n = modelo.getQuantidadeCartasConselheiro(idVez);
+			if (n == 0)
+				vazio(g, "Você não tem cartas de conselheiro.", y);
+			for (int i = 0; i < n; i++)
+				carta(g, idVez, i, i, y, Cores.de(modelo.getCorJogador(idVez)), false);
+			y += Math.max(1, linhas(n)) * (ALT + FOLGA);
 
 			secao(g, "Cartas abertas na mesa (1 voto para o 1o que cumprir)", y);
 			y += TITULO_SECAO;

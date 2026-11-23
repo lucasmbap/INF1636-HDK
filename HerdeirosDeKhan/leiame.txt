@@ -1,0 +1,9 @@
+ANA BEATRIZ HUBNER PEDROSA - 2410284
+LUCAS DE MENEZES BAPTISTA - 2410425
+SARIA KAHWATI - 
+
+Classe com o metodo main: View.Main  (pacote View, arquivo src/View/Main.java)
+ 
+Como executar: executar a classe View.Main.
+ 
+Video de apresentacao: 

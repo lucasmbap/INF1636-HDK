@@ -292,7 +292,7 @@ public class PainelTabuleiro extends PainelMapa implements ObservadorIF {
 			if (votos < 1) {
 				// sem votos: so um circulo, da cor do jogador, na 1a casa (todos juntos, um sobre o outro)
 				Point p0 = casaDoVoto(1);
-				g.setColor(Cores.de(cor));
+				g.setColor(Color.WHITE);
 				g.fill(new Ellipse2D.Double(p0.x - VOTO_D / 2, p0.y - VOTO_D / 2, VOTO_D, VOTO_D));
 				continue;
 			}

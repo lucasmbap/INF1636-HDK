@@ -6,4 +6,4 @@ Classe com o metodo main: View.Main  (pacote View, arquivo src/View/Main.java)
  
 Como executar: executar a classe View.Main.
  
-Video de apresentacao: 
+Video de apresentacao: https://drive.google.com/drive/folders/1_6aYnoLXb822BQCkwDJg6-UWhWQoUgVW?usp=sharing
